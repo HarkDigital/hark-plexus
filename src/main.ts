@@ -60,7 +60,9 @@ async function boot() {
 
   const engine = new Engine(canvas, track, stages)
   // the GPU context is gone for good: show the static copy, not an empty canvas
+  let teardown: () => void = () => {}
   engine.onContextGone = () => {
+    teardown()
     canvas.remove()
     stages?.remove()
     renderFallback(track)
@@ -79,6 +81,11 @@ async function boot() {
 
   const sound = new Sound()
   const chrome = createChrome(document.getElementById('chrome')!, engine, sound)
+  // a permanent context loss: silence the pad and remove the live HUD before the static page shows
+  teardown = () => {
+    if (sound.enabled) sound.toggle()
+    document.getElementById('chrome')?.remove()
+  }
   engine.onFrame.push((f, s) => {
     chrome.update(f, s)
     sound.update(f, s)

@@ -106,7 +106,19 @@ export class Engine {
    * Ambient motion on/off. When off, frame.time holds still once the intro
    * reveal has had time to play (3 s after 'hark:reveal').
    */
-  motion = true
+  private _motion = true
+  /** Ambient motion on/off (the chrome's Motion switch). Off also stops smooth-scroll inertia. */
+  get motion() {
+    return this._motion
+  }
+  set motion(on: boolean) {
+    this._motion = on
+    const l = this.lenis as unknown as { options?: { lerp?: number; smoothWheel?: boolean } } | undefined
+    if (l?.options) {
+      l.options.lerp = on && !this.reducedMotion ? 0.09 : 1
+      l.options.smoothWheel = on && !this.reducedMotion
+    }
+  }
   private revealAt = -1
   /** called when the GPU context is gone for good (main.ts shows the fallback) */
   onContextGone: (() => void) | null = null
@@ -500,7 +512,7 @@ export class Engine {
     const target = this.slots.findIndex(s => s.def.id === id)
     if (target < 0) return
     const local = at ?? this.landingFor(id)
-    if (!smooth) return this.gotoChapter(id, local)
+    if (!smooth || !this.motion || this.reducedMotion) return this.gotoChapter(id, local)
     if (Math.abs(target - this.state.index) <= 1) return this.gotoChapter(id, local, true)
     this.jump = { t: 0, id, local, swapped: false }
   }
@@ -530,9 +542,11 @@ export class Engine {
   gotoChapter(id: string, local = 0, smooth = false) {
     const slot = this.slots.find(s => s.def.id === id)
     if (!slot) return
-    if (!smooth) this.jump = null
+    // Motion off / reduced motion: jumps are instant, never a 1.8 s scrub
+    const animate = smooth && this.motion && !this.reducedMotion
+    if (!animate) this.jump = null
     const y = (slot.start + clamp(local) * slot.def.length) * this.vh + 1
-    this.lenis.scrollTo(y, smooth ? { duration: 1.8, force: true } : { immediate: true, force: true })
+    this.lenis.scrollTo(y, animate ? { duration: 1.8, force: true } : { immediate: true, force: true })
   }
 
   start() {
