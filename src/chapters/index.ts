@@ -12,7 +12,7 @@ import type { ChapterDef } from '../core/types'
  */
 export const CHAPTERS: ChapterDef[] = [
   { id: 'hero', label: 'Genesis', length: 2.6, landing: 0, intro: 0.8, load: () => import('./hero/index') },
-  { id: 'work', label: 'Constellation', length: 3.8, landing: 0.12, intro: 0.06, load: () => import('./work/index') },
+  { id: 'work', label: 'Constellation', length: 3.8, landing: 0.12, intro: 0.06, transmission: 1, load: () => import('./work/index') },
   { id: 'services', label: 'Nodes', length: 3.8, landing: 0.08, intro: 0.06, load: () => import('./services/index') },
   { id: 'voices', label: 'Echoes', length: 3.0, landing: 0.08, intro: 0.06, load: () => import('./voices/index') },
   { id: 'shield', label: 'Firewall', length: 1.7, landing: 0.45, intro: 0.45, load: () => import('./shield/index') },

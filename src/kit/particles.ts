@@ -122,6 +122,12 @@ export class Morph {
     })
     this.points = new THREE.Points(g, m)
     this.points.frustumCulled = false
+    // sprite size in world units: read the height of whatever target is being
+    // drawn (the canvas, the post chain, or three's smaller glass buffer)
+    this.points.onBeforeRender = r => {
+      const rt = r.getRenderTarget()
+      this.u.uPx.value = rt ? rt.height : r.domElement.height
+    }
   }
   /** Set shape 'a' (mix 0) or 'b' (mix 1). positions.length must be count*3 (shorter arrays repeat). */
   to(slot: 'a' | 'b', positions: Float32Array) {

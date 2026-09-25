@@ -1,0 +1,259 @@
+/* ------------------------------------------------------------------
+   Echoes (voices) — the intro headline and the frosted quote panel with
+   its constellation progress row. Every selector is scoped under
+   .stage-voices.
+   ------------------------------------------------------------------ */
+
+.stage-voices .ec-intro {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  /* narrow enough that the headline breaks after 'We listen.' beside the lens */
+  width: min(620px, 46vw, calc(100vw - 2 * var(--gutter)));
+  display: grid;
+  justify-items: start;
+  gap: clamp(14px, 2.2vh, 22px);
+}
+.stage-voices .ec-eyebrow {
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+.stage-voices .ec-intro.is-on .ec-eyebrow {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.7s ease 0.1s,
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
+}
+.stage-voices .ec-title {
+  font-size: clamp(2.6rem, 6.2vw, 6.4rem);
+  line-height: 0.95;
+}
+
+/* ---------------- the quote panel ---------------- */
+
+.stage-voices .ec-panel {
+  --glass-fill-strong: rgba(8, 10, 32, 0.72);
+  position: absolute;
+  left: var(--gutter);
+  bottom: var(--safe-bottom);
+  width: min(520px, 40vw);
+  margin: 0;
+  padding: 22px 26px 24px;
+  display: grid;
+  gap: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.45s;
+}
+.stage-voices .ec-panel.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.7s ease,
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0s;
+}
+
+.stage-voices .ec-meta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.stage-voices .ec-count {
+  flex: none;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.stage-voices .ec-count b {
+  font-weight: 500;
+  color: var(--fg);
+}
+
+/* the progress row: eight nodes joined like a constellation; the lit link
+   runs from the first voice to the current one */
+.stage-voices .ec-track {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 210px;
+  height: 10px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.stage-voices .ec-line,
+.stage-voices .ec-fill {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 1px;
+  margin-top: -0.5px;
+}
+.stage-voices .ec-line {
+  background: rgba(255, 255, 255, 0.16);
+}
+.stage-voices .ec-fill {
+  background: linear-gradient(90deg, #8fd0ff, #a99bff);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 8px rgba(143, 208, 255, 0.55);
+}
+.stage-voices .ec-track i {
+  position: relative;
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  transition:
+    background-color 0.5s ease,
+    box-shadow 0.5s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-voices .ec-track i.is-past {
+  background: #b9d9ff;
+}
+.stage-voices .ec-track i.is-on {
+  background: #f4f7ff;
+  transform: scale(1.6);
+  box-shadow:
+    0 0 0 3px rgba(143, 208, 255, 0.22),
+    0 0 12px rgba(143, 208, 255, 0.85);
+}
+
+/* the cards stack in one place; the stack's height glides to the active one */
+.stage-voices .ec-stack {
+  position: relative;
+  height: 0;
+  transition: height 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-voices .ec-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  visibility: hidden;
+  transition: visibility 0s linear 0.4s;
+}
+.stage-voices .ec-card.is-on {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.stage-voices .ec-quote {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.62vw, 1.8rem);
+  line-height: 1.26;
+  letter-spacing: -0.022em;
+  /* hang the opening mark in the margin */
+  text-indent: -0.42em;
+}
+.stage-voices .ec-card--long .ec-quote {
+  font-size: clamp(1.08rem, 1.4vw, 1.55rem);
+}
+.stage-voices .ec-quote .rise-w,
+.stage-voices .ec-quote .rise-w > span {
+  text-indent: 0;
+}
+/* the incoming quote waits for the outgoing one to clear; long quotes land in ~1.1 s */
+.stage-voices .ec-card .rise.is-in .rise-w > span {
+  transition-delay: calc(0.28s + min(var(--i, 0), 26) * 18ms);
+}
+
+.stage-voices .ec-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 18px 0 0;
+}
+.stage-voices .ec-who::before {
+  content: '';
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, #8fd0ff, #a99bff);
+}
+.stage-voices .ec-name {
+  color: var(--fg);
+}
+.stage-voices .ec-co {
+  color: var(--fg-muted);
+}
+.stage-voices .ec-card .ec-who .rise.is-in .rise-w > span {
+  transition-delay: calc(0.5s + var(--i, 0) * 30ms);
+}
+
+/* ---------------- portrait: the wave and lens above, the panel below ---------------- */
+
+@media (max-aspect-ratio: 1/1) {
+  .stage-voices .ec-intro {
+    width: calc(100vw - 2 * var(--gutter));
+  }
+  .stage-voices .ec-title {
+    font-size: clamp(2.3rem, 10.5vw, 4.6rem);
+  }
+  .stage-voices .ec-panel {
+    left: var(--gutter);
+    right: var(--gutter);
+    width: auto;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 18px 20px 20px;
+    gap: 14px;
+  }
+  .stage-voices .ec-quote {
+    font-size: clamp(1.06rem, 4.6vw, 1.6rem);
+    line-height: 1.28;
+  }
+  .stage-voices .ec-card--long .ec-quote {
+    font-size: clamp(0.98rem, 4.2vw, 1.45rem);
+  }
+  .stage-voices .ec-who {
+    margin-top: 14px;
+  }
+}
+
+/* short landscape phones: thin chrome bands, a compact panel */
+@media (orientation: landscape) and (max-height: 500px) {
+  .stage-voices .ec-title {
+    font-size: clamp(1.9rem, 5.4vw, 2.8rem);
+  }
+  .stage-voices .ec-intro {
+    gap: 10px;
+  }
+  .stage-voices .ec-panel {
+    width: min(440px, 46vw);
+    padding: 12px 16px 14px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+  .stage-voices .ec-quote,
+  .stage-voices .ec-card--long .ec-quote {
+    font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+    line-height: 1.28;
+  }
+  .stage-voices .ec-who {
+    margin-top: 8px;
+  }
+}
+
+/* phones / scaled-down devices: the base .lowfx rule drops the panel's
+   backdrop-filter; keep the fill dense enough for the quote */
+.lowfx .stage-voices .ec-panel {
+  --glass-fill: rgba(8, 10, 32, 0.86);
+}

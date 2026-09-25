@@ -1,0 +1,340 @@
+/* ------------------------------------------------------------------
+   Flow (process) — the headline, the frosted step card with its 4-step
+   track, and the three stat tiles that resolve out of frost (sparkles
+   settle on their rims). Every selector is scoped under .stage-process.
+   ------------------------------------------------------------------ */
+
+.stage-process .pr-head {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  max-width: min(640px, calc(100vw - 2 * var(--gutter)));
+  display: grid;
+  gap: 18px;
+  justify-items: start;
+}
+
+/* ---------------- the step card ---------------- */
+
+.stage-process .pr-card {
+  position: absolute;
+  left: var(--gutter);
+  bottom: var(--safe-bottom);
+  width: min(440px, calc(100vw - 2 * var(--gutter)));
+  padding: 24px 26px 22px;
+  display: grid;
+  gap: 16px;
+}
+
+/* the four steps share one cell; the active one comes into focus */
+.stage-process .pr-steps {
+  display: grid;
+}
+.stage-process .pr-step {
+  grid-area: 1 / 1;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  visibility: hidden;
+  transition: visibility 0s linear 0.4s;
+}
+.stage-process .pr-step.is-on {
+  visibility: visible;
+  transition-delay: 0s;
+}
+.stage-process .pr-title {
+  font-family: var(--font-display);
+  font-weight: 580;
+  font-size: clamp(1.9rem, 2.8vw, 2.7rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  color: var(--fg);
+  margin: 0;
+}
+.stage-process .pr-title em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.6em;
+  letter-spacing: 0.02em;
+  vertical-align: 0.34em;
+}
+.stage-process .pr-text {
+  max-width: 38ch;
+  opacity: 0;
+  filter: blur(8px);
+  transform: translate3d(0, 6px, 0);
+  transition:
+    opacity 0.35s ease,
+    filter 0.35s ease,
+    transform 0.35s ease;
+}
+.stage-process .pr-step.is-on .pr-text {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition:
+    opacity 0.6s ease 0.12s,
+    filter 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.12s,
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.12s;
+}
+
+/* the 4-step track: glass hairlines that fill with light */
+.stage-process .pr-track {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.stage-process .pr-seg {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+.stage-process .pr-bar {
+  position: relative;
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.stage-process .pr-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-grad);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  box-shadow: 0 0 10px rgba(143, 208, 255, 0.6);
+}
+.stage-process .pr-name {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.4s ease;
+}
+.stage-process .pr-seg.is-done .pr-name {
+  color: var(--fg-muted);
+}
+.stage-process .pr-seg.is-on .pr-name {
+  color: var(--fg);
+}
+
+/* ---------------- the stats: three frosted tiles ---------------- */
+
+.stage-process .pr-stats {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: var(--safe-bottom);
+  margin: 0 auto;
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+/* the sparkles' canvas reaches above the tiles (they settle from the scene) */
+.stage-process .pr-sparkles {
+  position: absolute;
+  left: -40px;
+  right: -40px;
+  top: -150px;
+  bottom: -8px;
+  width: calc(100% + 80px);
+  height: calc(100% + 158px);
+  pointer-events: none;
+  z-index: 2;
+}
+.stage-process .pr-tile {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 22px 24px 24px;
+  opacity: 0;
+  transform: translate3d(0, 12px, 0) scale(0.985);
+  transition:
+    opacity 0.4s ease,
+    transform 0.5s ease;
+}
+.stage-process .pr-tile.is-on {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.8s ease calc(var(--i, 0) * 120ms),
+    transform 1.1s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--i, 0) * 120ms);
+}
+/* the tile's contents resolve out of frost: blurred → sharp */
+.stage-process .pr-tile > * {
+  filter: blur(12px);
+  opacity: 0.2;
+  transition:
+    filter 0.4s ease,
+    opacity 0.4s ease;
+}
+.stage-process .pr-tile.is-on > * {
+  filter: none;
+  opacity: 1;
+  transition:
+    filter 1s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--i, 0) * 120ms + 120ms),
+    opacity 0.7s ease calc(var(--i, 0) * 120ms + 120ms);
+}
+.stage-process .pr-value {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 580;
+  font-size: clamp(2.2rem, 3.6vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: var(--fg);
+}
+.stage-process .pr-label {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: clamp(13.5px, 1vw, 15px);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 36ch;
+}
+
+/* ---------------- portrait: subject above, copy below ---------------- */
+
+@media (max-aspect-ratio: 9/10) {
+  .stage-process .pr-head {
+    right: var(--gutter);
+    gap: 12px;
+  }
+  .stage-process .pr-card {
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: min(560px, calc(100vw - 2 * var(--gutter)));
+    padding: 18px 20px 20px;
+    gap: 12px;
+  }
+  .stage-process .pr-title {
+    font-size: clamp(1.75rem, 7.4vw, 2.6rem);
+  }
+  .stage-process .pr-text {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .stage-process .pr-stats {
+    /* one value column for every tile ("10 years" is ~3.55em wide) */
+    --pr-v: clamp(1.9rem, 7.4vw, 2.6rem);
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 560px;
+    gap: 10px;
+  }
+  .stage-process .pr-tile {
+    grid-template-columns: calc(var(--pr-v) * 3.6) minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+  }
+  .stage-process .pr-value {
+    font-size: var(--pr-v);
+    white-space: nowrap;
+  }
+  .stage-process .pr-label {
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+}
+
+/* phones: tighter still */
+@media (max-aspect-ratio: 9/10) and (max-width: 420px) {
+  .stage-process .pr-card {
+    padding: 16px 18px 18px;
+    gap: 10px;
+  }
+  .stage-process .pr-text {
+    font-size: 14.5px;
+  }
+  .stage-process .pr-name {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+  .stage-process .pr-tile {
+    padding: 13px 16px;
+    gap: 14px;
+  }
+  .stage-process .pr-label {
+    font-size: 13px;
+  }
+}
+@media (max-aspect-ratio: 9/10) and (max-height: 700px) {
+  .stage-process .pr-title {
+    font-size: 1.7rem;
+  }
+  .stage-process .pr-text {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .stage-process .pr-stats {
+    --pr-v: 1.75rem;
+    gap: 8px;
+  }
+  .stage-process .pr-tile {
+    padding: 11px 14px;
+  }
+  .stage-process .pr-label {
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+}
+
+/* short landscape (a phone on its side): thin bands, compact panels */
+@media (orientation: landscape) and (max-height: 500px) {
+  .stage-process .pr-head {
+    gap: 10px;
+    max-width: min(460px, 60vw);
+  }
+  .stage-process .pr-head .hud-h2 {
+    font-size: clamp(1.6rem, 4.2vw, 2.2rem);
+  }
+  .stage-process .pr-card {
+    width: min(360px, 46vw);
+    padding: 12px 16px 14px;
+    gap: 8px;
+  }
+  .stage-process .pr-title {
+    font-size: 1.45rem;
+  }
+  .stage-process .pr-step {
+    gap: 6px;
+  }
+  .stage-process .pr-text {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .stage-process .pr-track {
+    gap: 6px;
+  }
+  .stage-process .pr-name {
+    display: none;
+  }
+  .stage-process .pr-stats {
+    gap: 8px;
+  }
+  .stage-process .pr-tile {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .stage-process .pr-value {
+    font-size: 1.5rem;
+  }
+  .stage-process .pr-label {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+}

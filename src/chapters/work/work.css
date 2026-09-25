@@ -1,0 +1,680 @@
+/* ------------------------------------------------------------------
+   Constellation (work) — frosted glass cards beside glass tiles, and the
+   nine small stars named in space. Every selector is scoped under
+   .stage-work. Accents: ice / violet / peach (never green).
+   ------------------------------------------------------------------ */
+
+.stage-work .wk-safe {
+  position: absolute;
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  left: var(--gutter);
+  right: var(--gutter);
+  visibility: hidden !important;
+  pointer-events: none;
+}
+
+/* ---------------- intro ---------------- */
+
+.stage-work .wk-intro {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  width: min(700px, calc(100vw - 2 * var(--gutter)));
+  display: grid;
+  justify-items: start;
+  gap: 18px;
+}
+.stage-work .wk-title {
+  font-size: clamp(2.6rem, 5.8vw, 6rem);
+  line-height: 0.95;
+}
+.stage-work .wk-count {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(12, 15, 46, 0.42);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.stage-work .wk-count i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #cfe6ff;
+  box-shadow: 0 0 8px rgba(136, 196, 255, 0.9);
+}
+
+/* ---------------- docks (cards, list) ---------------- */
+
+.stage-work .wk-dock {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  width: min(440px, 36vw);
+  display: grid;
+  align-content: center;
+  pointer-events: none;
+}
+.stage-work .wk-dock > * {
+  grid-area: 1 / 1;
+}
+.stage-work .wk-dock--list {
+  width: min(470px, 38vw);
+}
+/* landscape: the list can never leave the safe band */
+@media (min-aspect-ratio: 10/9) {
+  .stage-work .wk-dock--list {
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
+  }
+  .stage-work .wk-dock--list .wk-list {
+    max-height: 100%;
+    overflow: auto;
+    scrollbar-width: none;
+  }
+  .stage-work .wk-dock--list .wk-list::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.stage-work .wk-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+}
+.stage-work .wk-num {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--fg);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.stage-work .wk-ind {
+  color: var(--fg-muted);
+}
+.stage-work .wk-badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #1a0c04;
+  background: #ffc4a3;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+/* the card's place in the constellation: six dots, the current one lit */
+.stage-work .wk-map {
+  width: 72px;
+  height: 22px;
+  overflow: visible;
+}
+.stage-work .wk-map line {
+  stroke: rgba(159, 208, 255, 0.45);
+  stroke-width: 0.8;
+}
+.stage-work .wk-map circle {
+  fill: rgba(223, 236, 255, 0.55);
+}
+.stage-work .wk-map circle.on {
+  fill: #ffffff;
+  filter: drop-shadow(0 0 3px rgba(136, 196, 255, 0.95));
+}
+
+/* ---------------- project card ---------------- */
+
+.stage-work .wk-card {
+  display: grid;
+  gap: 14px;
+  padding: 26px 28px 24px;
+  align-self: center;
+}
+.stage-work .wk-name {
+  font-size: clamp(2rem, 3.1vw, 3.1rem);
+  line-height: 1;
+}
+.stage-work .wk-blurb {
+  max-width: 38ch;
+}
+.stage-work .wk-cta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 4px;
+}
+.stage-work .wk-host {
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------- the other nine ---------------- */
+
+.stage-work .wk-list {
+  display: grid;
+  gap: 14px;
+  padding: 24px 26px 22px;
+  align-self: center;
+}
+.stage-work .wk-list-title {
+  font-size: clamp(1.9rem, 2.7vw, 2.7rem);
+  line-height: 1;
+}
+.stage-work .wk-rows {
+  list-style: none;
+  margin: 0 -10px;
+  padding: 0;
+  display: grid;
+}
+.stage-work .wk-rows li + li {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.stage-work .wk-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto 1em;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: var(--fg);
+  text-decoration: none;
+  transition:
+    background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-work .wk-no {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+  transition: color 0.35s ease;
+}
+.stage-work .wk-rname {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+.stage-work .wk-pre {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffc4a3;
+}
+.stage-work .wk-rind {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+.stage-work .wk-arrow {
+  color: var(--fg-faint);
+  font-size: 13px;
+  transition:
+    color 0.35s ease,
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-work .wk-row:hover,
+.stage-work .wk-row:focus-visible,
+.stage-work .wk-row.is-cur {
+  background-color: rgba(255, 255, 255, 0.075);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.stage-work .wk-row:hover .wk-no,
+.stage-work .wk-row:focus-visible .wk-no,
+.stage-work .wk-row.is-cur .wk-no {
+  color: var(--signal);
+}
+.stage-work .wk-row:hover .wk-arrow,
+.stage-work .wk-row:focus-visible .wk-arrow,
+.stage-work .wk-row.is-cur .wk-arrow {
+  color: var(--signal);
+  transform: translate(2px, -2px);
+}
+.stage-work .wk-list .wk-cta {
+  margin-top: 6px;
+}
+
+/* ---------------- the nine stars, named in space ---------------- */
+
+.stage-work .wk-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stage-work .wk-star {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--fg);
+  text-decoration: none;
+  padding: 5px 10px 5px 8px;
+  border-radius: 999px;
+  background: rgba(8, 10, 32, 0.62);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: auto;
+  transition:
+    background-color 0.35s ease,
+    box-shadow 0.35s ease,
+    color 0.35s ease;
+  will-change: transform;
+}
+.stage-work .wk-star i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #cfe6ff;
+  box-shadow: 0 0 6px rgba(136, 196, 255, 0.8);
+}
+.stage-work .wk-star.is-flip {
+  flex-direction: row-reverse;
+  padding: 5px 8px 5px 10px;
+}
+.stage-work .wk-star:hover,
+.stage-work .wk-star.is-cur {
+  color: #06102a;
+  background: rgba(223, 238, 255, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 22px rgba(136, 196, 255, 0.45);
+}
+.stage-work .wk-star:hover i,
+.stage-work .wk-star.is-cur i {
+  background: #2f6fd6;
+  box-shadow: none;
+}
+
+/* a hairline from the chosen star to its card (scaled to length per frame) */
+.stage-work .wk-stem {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
+  background: linear-gradient(180deg, rgba(223, 238, 255, 0.85), rgba(136, 196, 255, 0.35));
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* the chosen star's glass card: a small window onto the site */
+.stage-work .wk-peek {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 232px;
+  padding: 8px 8px 10px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 40%),
+    rgba(12, 15, 44, 0.62);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 18px 50px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(136, 196, 255, 0.16);
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.stage-work .wk-peek-img {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #12163a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.stage-work .wk-peek-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+.stage-work .wk-peek-cap {
+  display: grid;
+  gap: 3px;
+  padding: 9px 4px 0;
+}
+.stage-work .wk-peek-name {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
+  color: var(--fg);
+}
+.stage-work .wk-peek-ind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* ---------------- tablet landscape: a slightly narrower column ---------------- */
+
+@media (max-width: 1100px) and (min-aspect-ratio: 10/9) {
+  .stage-work .wk-dock {
+    width: min(400px, 40vw);
+  }
+  .stage-work .wk-dock--list {
+    width: min(420px, 42vw);
+  }
+  .stage-work .wk-rind {
+    display: none;
+  }
+  .stage-work .wk-row {
+    grid-template-columns: 2.2em minmax(0, 1fr) 1em;
+  }
+}
+
+/* ---------------- portrait: subject above, copy below ---------------- */
+
+@media (max-aspect-ratio: 10/9) {
+  .stage-work .wk-intro {
+    right: var(--gutter);
+    width: auto;
+    gap: 14px;
+  }
+  .stage-work .wk-title {
+    font-size: clamp(2.5rem, 10.5vw, 5rem);
+  }
+  .stage-work .wk-dock,
+  .stage-work .wk-dock--list {
+    top: auto;
+    right: var(--gutter);
+    width: auto;
+    max-width: 600px;
+    align-content: end;
+  }
+  .stage-work .wk-card,
+  .stage-work .wk-list {
+    align-self: end;
+  }
+  .stage-work .wk-card {
+    gap: 11px;
+    padding: 20px 22px 20px;
+  }
+  .stage-work .wk-name {
+    font-size: clamp(1.75rem, 7vw, 2.6rem);
+  }
+  .stage-work .wk-list {
+    gap: 12px;
+    padding: 20px 22px 18px;
+  }
+  .stage-work .wk-list-title {
+    font-size: clamp(1.7rem, 6.6vw, 2.4rem);
+  }
+}
+
+@media (max-aspect-ratio: 10/9) and (max-width: 560px) {
+  .stage-work .wk-peek {
+    width: 176px;
+    padding: 6px 6px 8px;
+    border-radius: 14px;
+  }
+  .stage-work .wk-peek-img {
+    border-radius: 9px;
+  }
+  .stage-work .wk-peek-cap {
+    padding: 7px 3px 0;
+  }
+  .stage-work .wk-peek-name {
+    font-size: 13px;
+  }
+  .stage-work .wk-card {
+    gap: 9px;
+    padding: 16px 18px 16px;
+    --radius: 18px;
+  }
+  .stage-work .wk-blurb {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .stage-work .wk-tags .hud-tag {
+    font-size: 10px;
+    padding: 4px 9px;
+  }
+  .stage-work .wk-cta {
+    gap: 8px 12px;
+  }
+  .stage-work .wk-visit {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  .stage-work .wk-map {
+    display: none;
+  }
+  .stage-work .wk-list {
+    gap: 10px;
+    padding: 16px 18px 14px;
+    --radius: 18px;
+  }
+  .stage-work .wk-row {
+    padding: 5px 10px;
+    gap: 10px;
+  }
+  .stage-work .wk-rname {
+    font-size: 14px;
+  }
+  .stage-work .wk-rind {
+    font-size: 9.5px;
+  }
+  .stage-work .wk-list .hud-btn {
+    padding: 11px 20px;
+  }
+}
+
+/* small phones: drop the industry column so every name fits on one line */
+@media (max-aspect-ratio: 10/9) and (max-width: 420px) {
+  .stage-work .wk-rind {
+    display: none;
+  }
+  .stage-work .wk-row {
+    grid-template-columns: 2.2em minmax(0, 1fr) 1em;
+  }
+}
+@media (max-aspect-ratio: 10/9) and (max-height: 700px) {
+  .stage-work .wk-row {
+    padding: 4px 10px;
+  }
+  .stage-work .wk-rname {
+    font-size: 13.5px;
+  }
+  .stage-work .wk-meta .wk-ind {
+    font-size: 10px;
+  }
+  .stage-work .wk-list-title {
+    font-size: 1.6rem;
+  }
+  .stage-work .wk-card .wk-tags {
+    display: none;
+  }
+}
+
+/* ---------------- short landscape desktops (1366x657, 1280x600…) ---------------- */
+
+@media (min-aspect-ratio: 10/9) and (max-height: 760px) {
+  .stage-work .wk-card {
+    gap: 11px;
+    padding: 20px 24px 18px;
+  }
+  .stage-work .wk-name {
+    font-size: clamp(1.8rem, 2.8vw, 2.6rem);
+  }
+  .stage-work .wk-list {
+    gap: 10px;
+    padding: 18px 22px 16px;
+  }
+  .stage-work .wk-list-title {
+    font-size: 2rem;
+  }
+  .stage-work .wk-row {
+    padding: 4px 10px;
+  }
+  .stage-work .wk-rname {
+    font-size: 14px;
+  }
+  .stage-work .wk-list .wk-cta {
+    margin-top: 2px;
+  }
+  .stage-work .wk-list .hud-btn {
+    padding: 11px 20px;
+  }
+}
+
+/* ---------------- short landscape phones ---------------- */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .stage-work .wk-intro {
+    gap: 10px;
+  }
+  .stage-work .wk-title {
+    font-size: clamp(2rem, 4.6vw, 2.8rem);
+  }
+  .stage-work .wk-count {
+    padding: 5px 11px;
+    font-size: 10.5px;
+  }
+  .stage-work .wk-dock {
+    width: min(360px, 44vw);
+  }
+  .stage-work .wk-dock--list {
+    width: min(520px, 60vw);
+  }
+  .stage-work .wk-card {
+    gap: 7px;
+    padding: 12px 16px;
+    --radius: 16px;
+  }
+  .stage-work .wk-map {
+    display: none;
+  }
+  .stage-work .wk-name {
+    font-size: 1.5rem;
+  }
+  .stage-work .wk-blurb {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .stage-work .wk-tags {
+    display: none;
+  }
+  .stage-work .wk-visit {
+    padding: 8px 14px;
+    font-size: 12.5px;
+  }
+  .stage-work .wk-list {
+    gap: 6px;
+    padding: 12px 16px;
+    --radius: 16px;
+  }
+  .stage-work .wk-list-title {
+    font-size: 1.4rem;
+  }
+  .stage-work .wk-rows {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8px;
+  }
+  .stage-work .wk-rows li + li {
+    border-top: 0;
+  }
+  .stage-work .wk-row {
+    grid-template-columns: 2em minmax(0, 1fr);
+    padding: 2px 8px;
+  }
+  .stage-work .wk-rind,
+  .stage-work .wk-arrow {
+    display: none;
+  }
+  .stage-work .wk-rname {
+    font-size: 12.5px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .stage-work .wk-list .hud-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  .stage-work .wk-star {
+    font-size: 9.5px;
+    padding: 4px 8px 4px 7px;
+  }
+  .stage-work .wk-peek {
+    width: 168px;
+  }
+}
+
+/* phones and scaled-down devices: no backdrop-filter over the canvas */
+.lowfx .stage-work .wk-count,
+.lowfx .stage-work .wk-star,
+.lowfx .stage-work .wk-peek {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.lowfx .stage-work .wk-count {
+  background: rgba(10, 13, 40, 0.82);
+}
+.lowfx .stage-work .wk-star {
+  background: rgba(8, 10, 32, 0.86);
+}
+.lowfx .stage-work .wk-peek {
+  background: rgba(12, 15, 44, 0.92);
+}
+.lowfx .stage-work .wk-star:hover,
+.lowfx .stage-work .wk-star.is-cur {
+  background: rgba(223, 238, 255, 0.96);
+}

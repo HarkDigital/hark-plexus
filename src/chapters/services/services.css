@@ -1,0 +1,381 @@
+/* Nodes — the services chapter. Every selector is scoped to .stage-services. */
+
+.stage-services {
+  --sv-col: min(440px, 34vw);
+  --sv-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* empty boxes on the safe bands: the camera fit reads their offsets (hud.ts) */
+.stage-services .sv-probe {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+.stage-services .sv-probe--top {
+  top: var(--safe-top);
+}
+.stage-services .sv-probe--bottom {
+  bottom: var(--safe-bottom);
+}
+
+/* ---------------- intro ---------------- */
+.stage-services .sv-intro {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  width: min(600px, 44vw);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  pointer-events: none;
+}
+.stage-services .sv-eyebrow {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translate3d(0, 8px, 0);
+  transition:
+    opacity 0.3s ease,
+    filter 0.3s ease,
+    transform 0.4s var(--sv-ease);
+}
+.stage-services .sv-intro.is-on .sv-eyebrow {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition:
+    opacity 0.6s ease,
+    filter 0.7s var(--sv-ease),
+    transform 0.9s var(--sv-ease);
+}
+.stage-services .sv-intro-title {
+  font-size: clamp(3rem, 6vw, 6.2rem);
+  line-height: 0.95;
+  max-width: 10.5ch;
+}
+
+/* ---------------- the card ---------------- */
+.stage-services .sv-col {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  width: var(--sv-col);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(-10px, 0, 0);
+  transition:
+    opacity 0.3s ease,
+    transform 0.4s ease,
+    visibility 0s linear 0.4s;
+}
+.stage-services .sv-col.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.7s var(--sv-ease) 0.12s,
+    transform 1s var(--sv-ease) 0.12s,
+    visibility 0s;
+}
+.stage-services .sv-card {
+  /* catch clicks, so a click on the copy never lands on a bead behind it */
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px 26px 20px;
+}
+.stage-services .sv-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+/* a lit glass bead (the node in view) */
+.stage-services .sv-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #bfe0ff 38%, #6f8cff 100%);
+  box-shadow:
+    0 0 0 3px rgba(136, 196, 255, 0.16),
+    0 0 14px rgba(136, 196, 255, 0.75);
+}
+.stage-services .sv-cur {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.stage-services .sv-of {
+  color: var(--fg-muted);
+  white-space: pre;
+}
+
+/* all eleven share one grid cell, so the card never jumps */
+.stage-services .sv-stack {
+  display: grid;
+}
+.stage-services .sv-item {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  visibility: hidden;
+  transition: visibility 0s linear 0.35s;
+}
+.stage-services .sv-item.is-on {
+  visibility: visible;
+  transition: visibility 0s;
+}
+.stage-services .sv-title {
+  font-size: clamp(1.9rem, 2.8vw, 2.8rem);
+  line-height: 1.02;
+}
+.stage-services .sv-blurb {
+  max-width: 40ch;
+}
+.stage-services .sv-blurb,
+.stage-services .sv-tags {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translate3d(0, 6px, 0);
+  transition:
+    opacity 0.25s ease,
+    filter 0.25s ease,
+    transform 0.3s ease;
+}
+.stage-services .sv-item.is-on .sv-blurb,
+.stage-services .sv-item.is-on .sv-tags {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition:
+    opacity 0.6s ease 0.14s,
+    filter 0.7s var(--sv-ease) 0.14s,
+    transform 0.9s var(--sv-ease) 0.14s;
+}
+.stage-services .sv-item.is-on .sv-tags {
+  transition-delay: 0.24s;
+}
+
+/* 01–11: glass beads strung on a hairline — the graph in miniature */
+.stage-services .sv-keys {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.stage-services .sv-wire {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: calc(14px + 15px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(136, 196, 255, 0.05), rgba(136, 196, 255, 0.4) 50%, rgba(139, 123, 255, 0.05));
+  pointer-events: none;
+}
+.stage-services .sv-key {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 55%),
+    rgba(12, 15, 46, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition:
+    color 0.3s ease,
+    background 0.4s ease,
+    box-shadow 0.4s ease,
+    transform 0.4s var(--sv-ease);
+}
+.stage-services .sv-key:hover {
+  color: var(--fg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 0 0 1px rgba(136, 196, 255, 0.5);
+}
+.stage-services .sv-key.is-on {
+  color: #06102a;
+  background:
+    radial-gradient(circle at 35% 28%, #ffffff 0%, rgba(255, 255, 255, 0) 60%),
+    #9fd0ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(20, 40, 90, 0.35),
+    0 0 16px rgba(136, 196, 255, 0.55);
+  transform: scale(1.08);
+}
+
+/* ---------------- mid-size landscape ---------------- */
+@media (orientation: landscape) and (max-width: 1100px) {
+  .stage-services {
+    --sv-col: min(400px, 40vw);
+  }
+  .stage-services .sv-card {
+    gap: 14px;
+    padding: 20px 22px 16px;
+  }
+  .stage-services .sv-title {
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
+  }
+  .stage-services .sv-blurb {
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .stage-services .sv-key {
+    width: 28px;
+    height: 28px;
+  }
+  .stage-services .sv-wire {
+    top: calc(14px + 14px);
+  }
+}
+
+/* ---------------- portrait: the graph above, the copy as a bottom panel ---------------- */
+@media (orientation: portrait) {
+  .stage-services .sv-col {
+    top: auto;
+    right: var(--gutter);
+    width: auto;
+    display: block;
+  }
+  .stage-services .sv-intro {
+    top: auto;
+    right: var(--gutter);
+    width: auto;
+    gap: 16px;
+    justify-content: flex-end;
+  }
+  .stage-services .sv-intro-title {
+    font-size: clamp(2.6rem, 10.5vw, 4.6rem);
+  }
+}
+@media (orientation: portrait) and (min-width: 640px) {
+  .stage-services .sv-col {
+    right: auto;
+    width: min(560px, calc(100vw - 2 * var(--gutter)));
+  }
+}
+@media (orientation: portrait) and (max-width: 639px) {
+  .stage-services .sv-card {
+    gap: 12px;
+    padding: 16px 16px 12px;
+  }
+  .stage-services .sv-item {
+    gap: 10px;
+  }
+  .stage-services .sv-title {
+    font-size: 1.6rem;
+    line-height: 1.04;
+  }
+  .stage-services .sv-blurb {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .stage-services .sv-tags .hud-tag {
+    font-size: 9.5px;
+    padding: 4px 8px;
+  }
+  .stage-services .sv-keys {
+    padding-top: 10px;
+    gap: 0;
+  }
+  .stage-services .sv-key {
+    width: 26px;
+    height: 26px;
+    font-size: 9.5px;
+  }
+  .stage-services .sv-wire {
+    top: calc(10px + 13px);
+  }
+}
+/* short phones: keep the graph visible — tighter type, tags live in the copy layer */
+@media (orientation: portrait) and (max-width: 639px) and (max-height: 720px) {
+  .stage-services .sv-title {
+    font-size: 1.35rem;
+  }
+  .stage-services .sv-blurb {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .stage-services .sv-tags {
+    display: none;
+  }
+  .stage-services .sv-key {
+    width: 24px;
+    height: 24px;
+  }
+  .stage-services .sv-wire {
+    top: calc(10px + 12px);
+  }
+}
+
+/* ---------------- short landscape phones: thin chrome bands ---------------- */
+@media (orientation: landscape) and (max-height: 500px) {
+  .stage-services {
+    --sv-col: min(380px, 46vw);
+  }
+  .stage-services .sv-card {
+    gap: 8px;
+    padding: 12px 14px 10px;
+    border-radius: 16px;
+  }
+  .stage-services .sv-item {
+    gap: 6px;
+  }
+  .stage-services .sv-title {
+    font-size: 1.25rem;
+  }
+  .stage-services .sv-blurb {
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .stage-services .sv-tags {
+    display: none;
+  }
+  .stage-services .sv-keys {
+    padding-top: 6px;
+  }
+  .stage-services .sv-key {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+  .stage-services .sv-wire {
+    top: calc(6px + 12px);
+  }
+  .stage-services .sv-intro {
+    gap: 12px;
+  }
+  .stage-services .sv-intro-title {
+    font-size: clamp(2rem, 7vw, 3rem);
+  }
+}

@@ -1,0 +1,584 @@
+/* ------------------------------------------------------------------
+   CONNECT — the contact chapter's card. One frosted glass panel: left and
+   vertically centred on landscape, along the bottom on portrait. The address
+   is the primary action (the ice glass pill); the sister concepts are small
+   glass pills, each with a lit node. Every selector is scoped to
+   .stage-contact. Keep in sync with PORTRAIT_QUERY in hud.ts.
+   ------------------------------------------------------------------ */
+
+.stage-contact .ct-probe {
+  position: absolute;
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  left: var(--gutter);
+  right: var(--gutter);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.stage-contact .ct-wrap {
+  position: absolute;
+  left: var(--gutter);
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  width: clamp(420px, 38vw, 570px);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.stage-contact .ct-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: clamp(26px, 2.7vw, 40px) clamp(26px, 2.7vw, 40px) clamp(22px, 2.2vw, 30px);
+  border-radius: 30px;
+  will-change: opacity, transform;
+}
+
+.stage-contact .ct-eyebrow {
+  margin-bottom: clamp(14px, 1.5vw, 20px);
+}
+
+.stage-contact .ct-title {
+  font-size: clamp(3.3rem, 6vw, 6.4rem);
+  line-height: 0.92;
+  margin-bottom: clamp(14px, 1.4vw, 20px);
+  white-space: nowrap;
+}
+
+.stage-contact .ct-body {
+  max-width: 40ch;
+  margin-bottom: clamp(20px, 2vw, 28px);
+}
+
+/* ---- the address: the primary action */
+.stage-contact .ct-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.stage-contact .ct-mail {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(15px, 1.2vw, 18px);
+  padding: 17px 24px 17px 20px;
+  gap: 12px;
+  letter-spacing: -0.015em;
+}
+@media (max-width: 1180px) {
+  .stage-contact .ct-mail {
+    padding: 15px 16px 15px 14px;
+    gap: 9px;
+  }
+  .stage-contact .ct-copy {
+    font-size: 14.5px;
+    padding: 15px 16px;
+  }
+}
+.stage-contact .ct-ico {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: block;
+}
+.stage-contact .ct-go {
+  display: inline-block;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-contact .ct-mail:hover .ct-go,
+.stage-contact .ct-mail:focus-visible .ct-go {
+  transform: translateX(4px);
+}
+
+/* the copy button: labels stacked in one cell so the width never jumps */
+.stage-contact .ct-copy {
+  display: inline-grid;
+  font-size: 15px;
+  padding: 17px 22px;
+}
+.stage-contact .ct-copy > span {
+  grid-area: 1 / 1;
+  text-align: center;
+  transition:
+    opacity 0.35s ease,
+    filter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-contact .ct-copy .ct-copy-done,
+.stage-contact .ct-copy .ct-copy-fail {
+  opacity: 0;
+  filter: blur(6px);
+}
+.stage-contact .ct-copy.is-copied .ct-copy-idle,
+.stage-contact .ct-copy.is-failed .ct-copy-idle {
+  opacity: 0;
+  filter: blur(6px);
+}
+.stage-contact .ct-copy.is-copied .ct-copy-done,
+.stage-contact .ct-copy.is-failed .ct-copy-fail {
+  opacity: 1;
+  filter: none;
+}
+.stage-contact .ct-copy.is-copied .ct-copy-done {
+  color: #cfe6ff;
+}
+.stage-contact .ct-copy.is-failed .ct-copy-fail {
+  color: #ffc9ab;
+}
+
+.stage-contact .ct-rule {
+  align-self: stretch;
+  margin: clamp(20px, 2vw, 26px) 0 clamp(14px, 1.3vw, 18px);
+}
+
+/* ---- other concepts: small glass pills, each with a lit node */
+.stage-contact .ct-more {
+  display: grid;
+  gap: 10px;
+}
+.stage-contact .ct-more-label {
+  margin: 0;
+  color: var(--fg-faint);
+}
+.stage-contact .ct-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stage-contact .ct-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 11px 0 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: -0.005em;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.stage-contact .ct-node {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: #9fd0ff;
+  box-shadow: 0 0 8px rgba(159, 208, 255, 0.85);
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.stage-contact .ct-arr {
+  color: #bcdcff;
+  font-size: 0.86em;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stage-contact .ct-link:hover,
+.stage-contact .ct-link:focus-visible {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px rgba(169, 155, 255, 0.45);
+}
+.stage-contact .ct-link:hover .ct-node,
+.stage-contact .ct-link:focus-visible .ct-node {
+  background: #ffb38a;
+  box-shadow: 0 0 10px rgba(255, 179, 138, 0.95);
+}
+.stage-contact .ct-link:hover .ct-arr,
+.stage-contact .ct-link:focus-visible .ct-arr {
+  transform: translate(2px, -2px);
+}
+
+/* ---- colophon */
+.stage-contact .ct-foot {
+  align-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 18px;
+  margin-top: clamp(16px, 1.5vw, 22px);
+}
+.stage-contact .ct-top {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 24px;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+.stage-contact .ct-top:hover,
+.stage-contact .ct-top:focus-visible {
+  color: #cfe6ff;
+}
+.stage-contact .ct-top:hover .ct-arr,
+.stage-contact .ct-top:focus-visible .ct-arr {
+  transform: translateY(-2px);
+}
+.stage-contact .ct-legal {
+  margin: 0;
+  text-wrap: balance;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.6;
+  color: var(--fg-faint);
+}
+.stage-contact .ct-nw {
+  white-space: nowrap;
+}
+
+/* ---- the sign-off under the halo (positioned by index.ts) */
+.stage-contact .ct-signoff {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: rgba(226, 236, 255, 0.86);
+  text-shadow: 0 0 18px rgba(6, 7, 26, 0.9);
+  pointer-events: none;
+}
+
+/* ---- fit levels (measured in hud.ts): short screens step the card down.
+   Links never drop below a 24px-tall target (WCAG 2.5.8). */
+.stage-contact.ct-fit-1 .ct-title {
+  font-size: clamp(2.8rem, 5vw, 5.2rem);
+}
+.stage-contact.ct-fit-1 .ct-body {
+  font-size: 14.5px;
+  line-height: 1.52;
+  margin-bottom: 18px;
+}
+.stage-contact.ct-fit-1 .ct-rule {
+  margin: 18px 0 12px;
+}
+.stage-contact.ct-fit-1 .ct-eyebrow {
+  margin-bottom: 12px;
+}
+
+.stage-contact.ct-fit-2 .ct-panel {
+  padding: 20px 22px 18px;
+  border-radius: 24px;
+}
+.stage-contact.ct-fit-2 .ct-title {
+  font-size: clamp(2.4rem, 4.2vw, 4.4rem);
+  margin-bottom: 10px;
+}
+.stage-contact.ct-fit-2 .ct-body {
+  font-size: 13.5px;
+  line-height: 1.48;
+  margin-bottom: 14px;
+}
+.stage-contact.ct-fit-2 .ct-mail,
+.stage-contact.ct-fit-2 .ct-copy {
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+.stage-contact.ct-fit-2 .ct-mail {
+  font-size: 15px;
+}
+.stage-contact.ct-fit-2 .ct-rule {
+  margin: 14px 0 10px;
+}
+.stage-contact.ct-fit-2 .ct-more {
+  gap: 7px;
+}
+.stage-contact.ct-fit-2 .ct-link {
+  min-height: 26px;
+  font-size: 12.5px;
+}
+.stage-contact.ct-fit-2 .ct-foot {
+  margin-top: 10px;
+}
+
+.stage-contact.ct-fit-3 .ct-eyebrow {
+  margin-bottom: 8px;
+}
+.stage-contact.ct-fit-3 .ct-title {
+  font-size: clamp(2.1rem, 3.6vw, 3.4rem);
+  margin-bottom: 8px;
+}
+.stage-contact.ct-fit-3 .ct-body {
+  font-size: 13px;
+  line-height: 1.42;
+  margin-bottom: 12px;
+}
+.stage-contact.ct-fit-3 .ct-mail,
+.stage-contact.ct-fit-3 .ct-copy {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+.stage-contact.ct-fit-3 .ct-rule {
+  margin: 12px 0 8px;
+}
+.stage-contact.ct-fit-3 .ct-more {
+  gap: 5px;
+}
+.stage-contact.ct-fit-3 .ct-links {
+  gap: 4px;
+}
+.stage-contact.ct-fit-3 .ct-link {
+  min-height: 24px;
+  padding: 0 9px 0 8px;
+  font-size: 12px;
+}
+.stage-contact.ct-fit-3 .ct-legal {
+  font-size: 10px;
+}
+
+/* ---- portrait: the card runs along the bottom, the mark lives above it */
+@media (max-width: 767px) and (orientation: portrait), (max-width: 767px) and (min-height: 501px), (max-aspect-ratio: 9/10) {
+  .stage-contact .ct-wrap {
+    top: auto;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: var(--safe-bottom);
+    width: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .stage-contact .ct-panel {
+    max-width: 640px;
+    padding: 26px 28px 22px;
+    border-radius: 26px;
+  }
+  .stage-contact .ct-title {
+    font-size: clamp(2.7rem, 11vw, 5.4rem);
+  }
+  .stage-contact .ct-body {
+    max-width: 52ch;
+  }
+}
+
+@media (max-width: 480px) {
+  .stage-contact .ct-panel {
+    padding: 20px 20px 18px;
+    border-radius: 22px;
+  }
+  .stage-contact .ct-eyebrow {
+    margin-bottom: 12px;
+  }
+  .stage-contact .ct-title {
+    margin-bottom: 12px;
+  }
+  .stage-contact .ct-body {
+    font-size: 14px;
+    line-height: 1.48;
+    margin-bottom: 16px;
+  }
+  .stage-contact .ct-cta {
+    gap: 8px;
+    align-self: stretch;
+    flex-wrap: nowrap;
+  }
+  .stage-contact .ct-mail {
+    flex: 1 1 auto;
+    justify-content: center;
+    font-size: 15px;
+    padding: 15px 16px;
+    gap: 9px;
+    min-width: 0;
+  }
+  .stage-contact .ct-copy {
+    flex: none;
+    font-size: 14px;
+    padding: 15px 16px;
+  }
+  /* "Copy" is enough on a phone; the button still says what it copies */
+  .stage-contact .ct-copy-more {
+    display: none;
+  }
+  .stage-contact .ct-rule {
+    margin: 16px 0 10px;
+  }
+  .stage-contact .ct-more {
+    gap: 7px;
+  }
+  .stage-contact .ct-links {
+    gap: 5px 4px;
+  }
+  .stage-contact .ct-link {
+    min-height: 26px;
+    font-size: 11.5px;
+    padding: 0 7px 0 6px;
+    gap: 5px;
+  }
+  .stage-contact .ct-foot {
+    margin-top: 10px;
+    gap: 2px 14px;
+  }
+  .stage-contact .ct-legal {
+    font-size: 10px;
+  }
+}
+/* the narrowest phones: the address keeps its arrow, the envelope steps aside */
+@media (max-width: 380px) {
+  .stage-contact .ct-ico {
+    display: none;
+  }
+  .stage-contact .ct-mail {
+    font-size: 14.5px;
+    padding: 15px 14px;
+  }
+  .stage-contact .ct-copy {
+    padding: 15px 14px;
+  }
+}
+/* short phones (≈375×667): the concepts become one row of chips that scrolls
+   sideways, so the mark keeps a window above the card */
+@media (max-width: 480px) and (max-height: 720px) and (orientation: portrait) {
+  .stage-contact .ct-links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    margin: 0 -20px;
+    padding: 1px 20px;
+    pointer-events: auto;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 30px), transparent);
+    mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 30px), transparent);
+  }
+  .stage-contact .ct-links::-webkit-scrollbar {
+    display: none;
+  }
+  .stage-contact .ct-links > li {
+    flex: none;
+  }
+}
+
+/* ---- short landscape phones: thin chrome bands, a compact, wider card */
+@media (orientation: landscape) and (max-height: 500px) {
+  .stage-contact .ct-wrap {
+    width: min(520px, 60vw);
+  }
+  .stage-contact .ct-panel {
+    padding: 13px 18px 11px;
+    border-radius: 20px;
+  }
+  .stage-contact .ct-eyebrow {
+    margin-bottom: 5px;
+    font-size: 10.5px;
+  }
+  .stage-contact .ct-title {
+    font-size: clamp(1.8rem, 7vh, 2.4rem);
+    margin-bottom: 5px;
+  }
+  .stage-contact .ct-body {
+    font-size: 12px;
+    line-height: 1.42;
+    margin-bottom: 9px;
+    max-width: none;
+  }
+  .stage-contact .ct-mail,
+  .stage-contact .ct-copy {
+    font-size: 14px;
+    padding: 9px 16px;
+  }
+  .stage-contact .ct-ico {
+    width: 17px;
+    height: 17px;
+  }
+  .stage-contact .ct-rule {
+    display: none;
+  }
+  .stage-contact .ct-more {
+    gap: 3px;
+    margin-top: 9px;
+  }
+  .stage-contact .ct-more-label {
+    font-size: 10px;
+  }
+  .stage-contact .ct-links {
+    gap: 4px;
+  }
+  .stage-contact .ct-link {
+    min-height: 24px;
+    font-size: 12px;
+    padding: 0 8px 0 7px;
+    gap: 5px;
+  }
+  .stage-contact .ct-foot {
+    margin-top: 3px;
+    gap: 0 14px;
+  }
+  .stage-contact .ct-legal {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+  }
+  .stage-contact .ct-signoff {
+    display: none;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 740px) {
+  /* a wider card so the concepts fit on two rows */
+  .stage-contact .ct-wrap {
+    width: min(470px, 68vw);
+  }
+  .stage-contact .ct-panel {
+    padding: 10px 16px 9px;
+  }
+  .stage-contact .ct-link {
+    font-size: 11.5px;
+    padding: 0 7px 0 6px;
+  }
+  .stage-contact .ct-eyebrow,
+  .stage-contact .ct-title {
+    margin-bottom: 3px;
+  }
+  .stage-contact .ct-title {
+    font-size: clamp(1.6rem, 6.4vh, 2.1rem);
+  }
+  .stage-contact .ct-body {
+    font-size: 11.5px;
+    line-height: 1.36;
+    margin-bottom: 7px;
+  }
+  .stage-contact .ct-mail,
+  .stage-contact .ct-copy {
+    font-size: 13.5px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+  .stage-contact .ct-more {
+    margin-top: 6px;
+  }
+  .stage-contact .ct-legal {
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* phones / scaled-down GPUs: no backdrop-filter over the canvas, denser fill */
+.lowfx .stage-contact .ct-link {
+  background: rgba(22, 28, 60, 0.9);
+}

@@ -79,6 +79,6 @@ vec3 rotateAxis(vec3 v, vec3 k, float a) { float c = cos(a), s = sin(a); return 
 
 /** Brand colors as GLSL constants (linear-ish approximations). */
 export const BRAND_GLSL = /* glsl */ `
-const vec3 SIGNAL = vec3(0.85, 0.87, 0.9);   // THEME: the concept accent (neutral placeholder; #00ff85 is not a brand color)
+const vec3 SIGNAL = vec3(0.85, 0.87, 0.9);   // THEME: the concept accent (neutral placeholder; the old signal green is not a brand color)
 const vec3 INK = vec3(0.004, 0.004, 0.004);
 `

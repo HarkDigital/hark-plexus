@@ -93,9 +93,9 @@ export function glass(o: GlassOpts = {}): THREE.MeshPhysicalMaterial {
     ior: o.ior ?? 1.5,
     specularIntensity: 1,
     specularColor: new THREE.Color(0xffffff),
-    // per-object multiplier of world.params.env — only honoured for materials
-    // a chapter hands to ctx.world.adopt(group) (see World.adopt); otherwise
-    // three uses world.params.env for every glass object
+    // NOTE: with scene.environment, three uses world.params.env
+    // (scene.environmentIntensity) for every material that has no envMap of
+    // its own — set material.envMap = ctx.world.envMap to make this count
     envMapIntensity: o.env ?? 1,
     clearcoat: o.coat ?? 0,
     clearcoatRoughness: 0.04,
@@ -141,8 +141,8 @@ export const GLASS = {
   frost: () => glass({ frost: 0.42, thickness: 0.3, dispersion: 0, env: 0.9 }),
   /** light frost: legible things behind, softened */
   satin: () => glass({ frost: 0.18, thickness: 0.4, dispersion: 0.15 }),
-  /** faintly green, like thick float glass */
-  ice: () => glass({ tint: '#c9ffe6', tintDistance: 2.4, thickness: 1.1, dispersion: 0.3 }),
+  /** faintly ice-blue, like thick float glass */
+  ice: () => glass({ tint: '#d6e8ff', tintDistance: 2.4, thickness: 1.1, dispersion: 0.3 }),
   /** a coloured glass */
   tinted: (tint: THREE.ColorRepresentation, distance = 0.9) => glass({ tint, tintDistance: distance, thickness: 0.8, dispersion: 0.25 }),
   /** dark smoked glass */
@@ -208,7 +208,7 @@ export interface GlassLogo {
   loopA: THREE.Mesh
   loopB: THREE.Mesh
   core: THREE.Mesh
-  /** a soft point light inside the core (green glow cast on nearby glass) */
+  /** a soft point light inside the core (ice glow cast on nearby glass) */
   glow: THREE.PointLight
 }
 
@@ -263,7 +263,7 @@ export function etch(
   o: { height?: number; font?: string; weight?: number; color?: THREE.ColorRepresentation; glow?: number; opacity?: number; letterSpacing?: number } = {},
 ): THREE.Mesh {
   const px = 128
-  const font = `${o.weight ?? 500} ${px}px ${o.font ?? "'Geist Variable', 'Geist', system-ui, sans-serif"}`
+  const font = `${o.weight ?? 500} ${px}px ${o.font ?? "'Sora Variable', 'Sora', system-ui, sans-serif"}`
   const cv = document.createElement('canvas')
   const g = cv.getContext('2d')!
   g.font = font

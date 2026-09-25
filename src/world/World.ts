@@ -95,8 +95,11 @@ const FRAG = /* glsl */ `
     float r = length(d);
     float rad = 1.6;
     n += normalize(d + 1e-5) * uPointerK * 0.55 * (1.0 - smoothstep(0.0, rad, r));
-    // gather toward the focus
-    n = mix(n, focusC + (n - focusC) * 0.35, uGather);
+    // gather toward the focus: a pull clamped to 0.42 cell so a node never
+    // leaves the 3x3 neighbourhood the shader draws (no clipped half dots)
+    vec2 pull = (focusC + (n - focusC) * 0.35) - n;
+    float pl = length(pull);
+    n += pull * min(1.0, 0.42 / max(pl, 1e-4)) * uGather;
     return n;
   }
 
