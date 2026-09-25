@@ -1,6 +1,7 @@
-// THEME: fonts (@fontsource packages). Neutral defaults: Inter + JetBrains Mono.
-import '@fontsource-variable/inter'
-import '@fontsource-variable/jetbrains-mono'
+// Fonts: Sora (display + body) and DM Mono (labels).
+import '@fontsource-variable/sora'
+import '@fontsource/dm-mono/400.css'
+import '@fontsource/dm-mono/500.css'
 import './styles/base.css'
 import './ui/ui.css'
 

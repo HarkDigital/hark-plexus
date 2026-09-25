@@ -6,20 +6,22 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 
 /*
- * Post-processing: Render → Sanitize (NaN guard) → Bloom → Output → FINAL.
+ * Post-processing for Hark Plexus: Render → Sanitize (NaN guard) → Bloom →
+ * Output → FINAL.
  *
- * THEME: the FINAL pass is where a concept gets its signature look and its
- * chapter-cut transition. Previous concepts replaced it with:
- *   Orbit      glitch tear + zoom blur + white-green flash
- *   Resonance  pressure-wave ripple + paper wash
- *   Press      ink densities → rotated halftone screens (riso)
- *   Town       tilt-shift blur + miniature saturation + cloud wipe
- *   Arcade     pixelate + palette snap + Bayer dither + CRT + iris wipe
+ * FINAL is a clean lens (faint aberration, vignette, fine grain, flash, fade)
+ * plus two effects:
+ *  - FROST (params.frost 0..1): the frame seen through frosted glass — a
+ *    grainy spiral blur with a pale sheen (depth / focus moments).
+ *  - THE PARTICLE CUT: approaching a chapter boundary the image breaks into a
+ *    field of glowing dots (each dot takes the colour of the image under it),
+ *    the dots shrink and drift apart, and at the boundary only a faint
+ *    glitter remains (hiding the swap); after it, the next chapter's dots
+ *    gather and fuse back into the picture. uCutSide says which half.
  *
- * This neutral version: soft radial wipe to `uCutColor` at cuts, gentle
- * chromatic aberration, vignette, grain, flash and fade. Keep the Post API
- * (params / resetParams / setSize / render / compileAsync / setFadeTone) and
- * the uTransition / uFade / uFlash / uGlitch uniforms — the engine drives them.
+ * Keep the Post API (params / resetParams / setSize / render / compileAsync /
+ * setFadeTone / cutSide) and the uTransition / uFade / uFlash / uGlitch
+ * uniforms — the engine drives them.
  */
 
 const FinalShader = {
@@ -28,20 +30,17 @@ const FinalShader = {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uDpr: { value: 1 },
-    /** 0..1, peaks exactly at a chapter boundary (engine-driven) */
     uTransition: { value: 0 },
-    /** 0..1 wobble a chapter can add (THEME: glitch / heat shimmer / VHS …) */
+    uCutSide: { value: 1 },
     uGlitch: { value: 0 },
-    uAberration: { value: 0.0015 },
-    uGrain: { value: 0.03 },
+    uAberration: { value: 0.0012 },
+    uGrain: { value: 0.022 },
     uVignette: { value: 0.3 },
-    /** 0..1 wash to white */
     uFlash: { value: 0 },
-    /** 0..1 fade to uFadeColor (reduced-motion cuts) */
     uFade: { value: 0 },
-    /** colour the cut wipes through (THEME) */
-    uCutColor: { value: new THREE.Color('#0d0f12') },
-    uFadeColor: { value: new THREE.Color('#0d0f12') },
+    uFrost: { value: 0 },
+    uTint: { value: new THREE.Color('#dfe7ff') },
+    uFadeColor: { value: new THREE.Color('#080a22') },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -49,38 +48,73 @@ const FinalShader = {
   `,
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
-    uniform float uTime, uDpr, uTransition, uGlitch, uAberration, uGrain, uVignette, uFlash, uFade;
+    uniform float uTime, uDpr, uTransition, uCutSide, uGlitch, uAberration, uGrain, uVignette, uFlash, uFade, uFrost;
     uniform vec2 uResolution;
-    uniform vec3 uCutColor, uFadeColor;
+    uniform vec3 uTint, uFadeColor;
     varying vec2 vUv;
 
     float hash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+    vec2 hash2(vec2 p) { return vec2(hash(p), hash(p + 19.19)); }
+
+    vec3 frosted(vec2 uv, float radiusPx) {
+      vec2 px = 1.0 / uResolution;
+      float a0 = hash(gl_FragCoord.xy) * 6.2831853;
+      vec3 acc = vec3(0.0);
+      for (int i = 0; i < 14; i++) {
+        float fi = float(i);
+        float r = sqrt((fi + 0.5) / 14.0) * radiusPx;
+        float a = a0 + fi * 2.3999632;
+        acc += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * r * px).rgb;
+      }
+      return acc / 14.0;
+    }
 
     void main() {
       vec2 uv = vUv;
-      float g = clamp(uGlitch, 0.0, 1.0);
-      uv.x += g * 0.004 * sin(uv.y * 60.0 + uTime * 12.0);
-
       vec2 c = uv - 0.5;
+      float g = clamp(uGlitch, 0.0, 1.0);
+      uv += g * 0.005 * vec2(sin(uv.y * 40.0 + uTime * 6.0), cos(uv.x * 33.0 - uTime * 5.0));
+
       vec3 col;
       col.r = texture2D(tDiffuse, uv + c * uAberration).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * uAberration).b;
 
-      // THEME: the chapter-cut transition. Neutral: a soft radial wipe that
-      // closes toward the centre at the boundary (t = 1) and reopens after.
+      float fr = clamp(uFrost, 0.0, 1.0);
       float t = clamp(uTransition, 0.0, 1.0);
+      if (fr > 0.002 && t < 0.5) {
+        vec3 f = frosted(uv, 26.0 * uDpr * fr * 1.4);
+        f = mix(f, uTint, 0.1 * fr) + 0.03 * fr;
+        col = mix(col, f, smoothstep(0.0, 0.35, fr));
+      }
+
+      // ---- THE PARTICLE CUT
       if (t > 0.001) {
-        float aspect = uResolution.x / max(uResolution.y, 1.0);
-        float r = length(c * vec2(aspect, 1.0));
-        float reach = (1.0 - t) * 1.1;
-        float wipe = 1.0 - smoothstep(reach - 0.12, reach, r);
-        col = mix(uCutColor, col, wipe);
+        vec2 css = gl_FragCoord.xy / uDpr;
+        float S = 9.0;                                   // dot pitch (CSS px)
+        vec2 cell = floor(css / S);
+        vec2 h = hash2(cell);
+        float e = t * t * (3.0 - 2.0 * t);
+        // dots drift apart (outward from the centre + their own direction), less after the boundary
+        vec2 fromC = (cell * S / (uResolution / uDpr)) - 0.5;
+        vec2 drift = (normalize(fromC + 1e-4) * 0.6 + (h - 0.5) * 1.4) * S * 0.45 * e;
+        vec2 centre = (cell + 0.5 + (h - 0.5) * 0.25) * S + drift * (uCutSide < 0.0 ? 1.0 : 0.6);
+        vec2 suv = (centre - drift) * uDpr / uResolution;   // the dot keeps the colour of where it came from
+        vec3 dc = texture2D(tDiffuse, clamp(suv, 0.0, 1.0)).rgb;
+        float d = length(css - centre);
+        float r = S * 0.55 * (1.0 - e * 0.82);
+        float dot1 = 1.0 - smoothstep(r * 0.55, r, d);
+        // survivors: as t -> 1 most dots go out, a glitter remains
+        float alive = step(e * 0.93, h.x);
+        float tw = 0.75 + 0.25 * sin(uTime * 9.0 + h.y * 30.0);
+        vec3 dots = dc * (1.25 + e * 1.4) * dot1 * mix(1.0, alive * tw, smoothstep(0.35, 0.9, e));
+        dots += vec3(0.8, 0.88, 1.0) * dot1 * alive * 0.05 * e;
+        col = mix(col, dots + uFadeColor * (1.0 - dot1) * 0.9, smoothstep(0.0, 0.3, t));
       }
 
       col = mix(col, vec3(1.0), clamp(uFlash, 0.0, 1.0));
       float v = 1.0 - smoothstep(0.35, 1.05, length(c * vec2(1.0, 0.9)) * 1.4);
-      col *= mix(1.0, 0.55 + 0.45 * v, uVignette);
+      col *= mix(1.0, 0.6 + 0.4 * v, uVignette);
       col += (hash(vUv * uResolution + fract(uTime * 7.13) * 91.0) - 0.5) * uGrain;
       col = mix(col, uFadeColor, clamp(uFade, 0.0, 1.0));
       gl_FragColor = vec4(col, 1.0);
@@ -103,20 +137,22 @@ export type PostParams = {
   /** white wash 0..1 */
   flash: number
   exposure: number
-  // THEME: add your look's params here (and damp them in render()).
+  /** whole-frame frosted glass 0..1 */
+  frost: number
 }
 
 /** Bloom only catches HDR (> ~1.0): emissive lamps, LEDs, speculars. */
 export const POST_DEFAULTS: PostParams = {
-  bloomStrength: 0.45,
-  bloomRadius: 0.4,
-  bloomThreshold: 1.0,
-  aberration: 0.0015,
-  grain: 0.03,
+  bloomStrength: 0.5,
+  bloomRadius: 0.5,
+  bloomThreshold: 0.95,
+  aberration: 0.0012,
+  grain: 0.022,
   vignette: 0.3,
   glitch: 0,
   flash: 0,
   exposure: 1,
+  frost: 0,
 }
 
 /**
@@ -151,6 +187,8 @@ export class Post {
   params: PostParams = { ...POST_DEFAULTS }
   private current: PostParams = { ...POST_DEFAULTS }
   transition = 0
+  /** -1 while approaching a chapter boundary, +1 after it (engine-driven) */
+  cutSide = 1
   fade = 0
   private lastFlashAt = -1e9
   private flashLive = false
@@ -178,9 +216,8 @@ export class Post {
     this.composer.addPass(this.final)
   }
 
-  /** THEME: colour the cut and reduced-motion fade pass through. */
+  /** Colour behind the dots at the cut and of the reduced-motion fade. */
   setCutColor(color: THREE.ColorRepresentation) {
-    ;(this.final.uniforms.uCutColor.value as THREE.Color).set(color)
     ;(this.final.uniforms.uFadeColor.value as THREE.Color).set(color)
   }
 
@@ -249,6 +286,8 @@ export class Post {
     u.uGrain.value = c.grain
     u.uVignette.value = c.vignette
     u.uFlash.value = c.flash
+    u.uFrost.value = c.frost
+    u.uCutSide.value = this.cutSide
     u.uFade.value = this.fade
     this.composer.render(dt)
   }

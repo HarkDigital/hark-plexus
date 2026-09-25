@@ -3,7 +3,8 @@ import type { Chapter } from '../../core/types'
 import { el, rise, setRise, reveal } from '../../core/dom'
 import { BRAND, MICROCOPY } from '../../content'
 import { ease, segment, smoothstep } from '../../core/math'
-import { placeholderFloor, placeholderMark, framedCamera } from '../common'
+import { placeholderMark, framedCamera } from '../common'
+import { Constellation, Dust, Morph, markShape, sphereShape } from '../../kit/particles'
 import '../chapter.css'
 
 /*
@@ -15,7 +16,14 @@ export default function create(): Chapter {
   const group = new THREE.Group()
   const mark = placeholderMark()
   mark.scale.setScalar(2.2)
-  group.add(mark, placeholderFloor())
+  // KIT SMOKE TEST (placeholder): particles morph into the mark beside the glass one
+  const morph = new Morph(6000, { size: 0.028, colorA: '#88c4ff', colorB: '#f4f7ff' })
+  morph.to('a', sphereShape(6000, 2.2))
+  morph.to('b', markShape(6000, { size: 2.2 }))
+  morph.points.position.set(-3.2, 0, -1)
+  const net = new Constellation({ count: 80, box: new THREE.Box3(new THREE.Vector3(-6, -3, -3), new THREE.Vector3(6, 3, 0)), link: 1.2 })
+  const dust = new Dust({ count: 300, box: new THREE.Box3(new THREE.Vector3(-7, -4, -2), new THREE.Vector3(7, 4, 3)) })
+  group.add(mark, morph.points, net.group, dust.points)
   let intro: HTMLElement
   let payoff: HTMLElement
   let title: HTMLElement
@@ -42,7 +50,10 @@ export default function create(): Chapter {
         window.__hark.land('contact')
       })
     },
-    update(local, frame) {
+    update(local, frame, ctx) {
+      morph.set({ mix: smoothstep(0.1, 0.5, local), time: frame.time, px: ctx.renderer.domElement.height })
+      net.update(frame.dt, null, ctx.reducedMotion)
+      dust.update(frame.time, frame.pointer)
       const spin = ease.inOutCubic(segment(local, 0.1, 0.6))
       mark.rotation.set(0.15 * Math.sin(frame.time * 0.6), spin * Math.PI * 2 + frame.time * 0.1, 0)
       reveal(intro, 1 - smoothstep(0.08, 0.14, local))

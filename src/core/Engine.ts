@@ -137,7 +137,7 @@ export class Engine {
     //   cinematic ones, NoToneMapping suits stylised post passes (palette
     //   snaps, ink densities). Shadows cost real GPU time — enable only if
     //   the look needs them (then keep the shadow frustum tight).
-    this.renderer.setClearColor(0x0d0f12, 1)
+    this.renderer.setClearColor(0x06071a, 1)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.NeutralToneMapping
     this.renderer.shadowMap.enabled = false
@@ -146,7 +146,8 @@ export class Engine {
     this.renderer.info.autoReset = false
     this.renderer.debug.checkShaderErrors = !import.meta.env.PROD
 
-    this.world = new World(this.scene, this.mobile)
+    this.renderer.transmissionResolutionScale = this.mobile ? 0.5 : 1
+    this.world = new World(this.scene, this.mobile, this.renderer)
     this.scene.add(this.world.object)
     this.assets = new Assets(this.renderer)
     // MSAA only where it pays: 1x desktop screens. Retina is already supersampled,
@@ -689,12 +690,25 @@ export class Engine {
     const slot = this.slots[index]
     if (!slot) return
     const local = clamp((scrollVh - slot.start) / slot.def.length)
+    // the glass (transmission) buffer: ~0.55 of a DPR-2 frame is plenty for refraction
+    const ts = this.mobile ? 0.5 : clamp(((slot.def.transmission ?? 0.55) * 2) / this.dpr, 0.35, 1)
+    if (this.renderer.transmissionResolutionScale !== ts) this.renderer.transmissionResolutionScale = ts
 
     // glitch ramps up approaching any internal cut and back down after it
     let d = Infinity
-    for (let i = 1; i < this.slots.length; i++) d = Math.min(d, Math.abs(scrollVh - this.slots[i].start))
+    let side = 1
+    for (let i = 1; i < this.slots.length; i++) {
+      const dd = scrollVh - this.slots[i].start
+      if (Math.abs(dd) < d) {
+        d = Math.abs(dd)
+        side = dd < 0 ? -1 : 1
+      }
+    }
     const tr = clamp(1 - d / CUT_WINDOW)
-    const cut = Math.max(tr * tr * (3 - 2 * tr), fx)
+    const scrollCut = tr * tr * (3 - 2 * tr)
+    const cut = Math.max(scrollCut, fx)
+    // which side of the cut we're on (dots scatter, then gather)
+    this.post.cutSide = fx > scrollCut && this.jump ? (this.jump.swapped ? 1 : -1) : side
     // cut budget (WCAG 2.3.1): while boundaries come fast (a quick scroll or
     // a cut peaked < 0.5 s ago) hold the transition so they merge into one
     // continuous sheet instead of a train of full-frame dips

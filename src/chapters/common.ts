@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { logoGeometry, logoParts } from '../logo/logo'
+import { glassLogo } from '../kit/glass'
 import { clamp } from '../core/math'
 import type { CameraPose, Frame } from '../core/types'
 
@@ -13,26 +13,14 @@ import type { CameraPose, Frame } from '../core/types'
  *   - in/out beats kept clear of the engine's cut window (first/last ~6%)
  */
 
-/** The Hark mark as a lit 3D block with a glowing diamond — a stand-in hero object. */
-export function placeholderMark(color = '#c9ced6'): THREE.Group {
-  const g = new THREE.Group()
-  const body = new THREE.Mesh(
-    logoGeometry({ depth: 0.22 }),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.1 }),
-  )
-  g.add(body)
-  const diamond = new THREE.Mesh(
-    new THREE.ShapeGeometry(logoParts().diamond),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff').multiplyScalar(1.6), toneMapped: false }),
-  )
-  diamond.position.z = 0.125
-  g.add(diamond)
-  return g
+/** The Hark mark in glass with a crystal core (kit/glass.ts glassLogo) — a stand-in hero object. */
+export function placeholderMark(): THREE.Group {
+  return glassLogo().root
 }
 
 /** A faint reference grid floor so placeholder scenes read as space. */
 export function placeholderFloor(size = 30, y = -1.4): THREE.GridHelper {
-  const grid = new THREE.GridHelper(size, size, 0x3a4150, 0x262b34)
+  const grid = new THREE.GridHelper(size, size, 0x1c2250, 0x121638)
   grid.position.y = y
   return grid
 }

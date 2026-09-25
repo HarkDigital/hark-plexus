@@ -107,5 +107,7 @@ export interface ChapterDef {
   landing?: number
   /** Local progress where the section headline shows (heading Tab stop lands here). */
   intro?: number
+  /** Glass buffer resolution for this chapter, as a fraction of a DPR-2 frame (0.55 default; ~1 for text/screenshots seen through glass). */
+  transmission?: number
   load: () => Promise<{ default: ChapterFactory }>
 }
