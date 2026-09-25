@@ -21,6 +21,13 @@ import { G } from '../../kit/glass'
  * as it passes, particles flare, a few are absorbed into the glass, and the
  * rest lift off and spiral out into the orbit ring.
  *
+ * B → D (uTextT): a quarter of them instead stream off the mark into the
+ * headline's accent word ('listen.'), placed in VIEW space from the word's
+ * measured screen box (so the particle word sits exactly where the DOM word
+ * will crossfade in, whatever the camera or its parallax does), then drift
+ * apart and fade as the DOM word takes over. setWord() fills the glyph
+ * targets once the display font is ready; until then they stay in the ring.
+ *
  * Pointer: particles near the cursor are pushed aside with a slight vortex
  * (screen space, stateless — correct at any jumped-to scroll position); a
  * click sends a soft ring out through them.
@@ -36,6 +43,10 @@ const VERT = /* glsl */ `
   attribute vec3 aMark;  // mark position
   attribute vec4 aHalo;  // ring: (r, angle, h, 0 core | 0.25 soft) | shell: (x, y, z, 1)
   attribute vec4 aRand;
+  attribute vec4 aText;  // word: glyph (x from the word's left, y from its mid-line) in em, is-word flag, departure delay
+  uniform float uTextT, uTextFade, uTextOn, uTextD, uTextW, uTextSize, uTextA, uTextDrift;
+  uniform vec2 uTextC, uTextK;
+  uniform vec3 uGradA, uGradB, uGradC;
   uniform float uTime, uCondense, uFront, uTravel, uHot, uSize, uPx, uOpacity, uReveal, uSwirl;
   uniform float uNebR, uNebSpin, uRingSpin, uRingR, uShellSpin, uHaloK, uNearFade;
   uniform mat3 uNebRot, uRingRot;
@@ -101,8 +112,9 @@ const VERT = /* glsl */ `
     float s = dot(aMark.xy, uDir);
     float past = uFront - s;
     float absorbed = step(aRand.w, 0.16);
+    float isWord = aText.z * uTextOn;
     float e2 = clamp((past - aRand.x * uTravel * 0.3) / uTravel, 0.0, 1.0);
-    e2 = e2 * e2 * (3.0 - 2.0 * e2) * (1.0 - absorbed);
+    e2 = e2 * e2 * (3.0 - 2.0 * e2) * (1.0 - absorbed) * (1.0 - isWord);
     float hot = smoothstep(-uHot, 0.0, past) * (1.0 - smoothstep(0.0, uHot * 2.5, past));
     p = spiral(p, ph, e2, 0.0);
     float fly2 = 4.0 * e2 * (1.0 - e2);
@@ -131,8 +143,34 @@ const VERT = /* glsl */ `
     a *= 0.8 + 0.2 * sin(uTime * (1.3 + aRand.w * 2.0) + aRand.z * 20.0);
     a *= uOpacity;
 
-    // ---- pointer: push aside with a slight vortex (screen space)
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
+
+    // ---- B → D: stream off the mark into the headline's accent word (view space)
+    float e3 = 0.0;
+    float sizeK = 1.0;
+    if (isWord > 0.5) {
+      e3 = clamp((uTextT - aText.w) / 0.58, 0.0, 1.0);
+      e3 = e3 * e3 * e3 * (e3 * (e3 * 6.0 - 15.0) + 10.0);
+      vec2 ndcT = uTextC + aText.xy * uTextK;
+      vec3 tv = vec3(ndcT.x * uTextD / projectionMatrix[0][0], ndcT.y * uTextD / projectionMatrix[1][1], -uTextD);
+      // once the DOM word is in, the particles drift apart as they fade
+      tv.xy += (aRand.zw - 0.5) * uTextDrift * uTextFade * uTextD / projectionMatrix[1][1];
+      vec3 dv = tv - mv.xyz;
+      float bow = sin(3.14159265 * e3);
+      vec2 side = vec2(-dv.y, dv.x);
+      vec3 q = mix(mv.xyz, tv, e3);
+      q.xy += side * (aRand.y - 0.5) * 0.42 * bow;
+      q += vec3(sin(sw * 1.1 + aRand.x * 7.0), cos(sw * 0.9 + aRand.z * 5.0), 0.0) * bow * uSwirl * 0.05 * length(dv.xy);
+      mv.xyz = q;
+      // the word's gradient: ice → violet → peach, left to right (the <em>'s own)
+      float gx = clamp(aText.x / uTextW, 0.0, 1.0);
+      vec3 cw = gx < 0.52 ? mix(uGradA, uGradB, gx / 0.52) : mix(uGradB, uGradC, (gx - 0.52) / 0.48);
+      col = mix(col, cw, e3);
+      a = mix(a, uTextA * (0.6 + 0.4 * aRand.y) * uOpacity, e3) * (1.0 - uTextFade * smoothstep(0.0, 1.0, e3));
+      sizeK = mix(1.0, uTextSize, e3);
+    }
+
+    // ---- pointer: push aside with a slight vortex (screen space)
     vec4 clip = projectionMatrix * mv;
     vec2 ndc = clip.xy / max(clip.w, 1e-3);
     vec2 dd = (ndc - uPtr) * vec2(uAspect, 1.0);
@@ -159,7 +197,7 @@ const VERT = /* glsl */ `
 
     vCol = col;
     vA = a;
-    float size = uSize * (0.55 + aRand.y * 0.9) * (1.0 + (step(0.95, aRand.w) * 0.6 + 0.2) * (1.0 - e1)) * (1.0 + hot * 0.4);
+    float size = uSize * (0.55 + aRand.y * 0.9) * (1.0 + (step(0.95, aRand.w) * 0.6 + 0.2) * (1.0 - e1)) * (1.0 + hot * 0.4) * sizeK;
     gl_PointSize = clamp(size * projectionMatrix[1][1] * 0.5 * uPx / max(-mv.z, 0.05), 1.0, 48.0);
     gl_Position = keep > 0.5 && a > 0.002 ? projectionMatrix * mv : vec4(2.0, 2.0, 2.0, 1.0);
   }
@@ -188,9 +226,20 @@ export interface GenesisCloud {
   /** ring rotation (shared with the plexus nodes) */
   ringRot: THREE.Matrix3
   ringR: number
+  /**
+   * Give the word particles their glyph targets: `pts` holds (x, y) pairs in
+   * em (x from the word's left edge, y up from its mid-line), `width` the
+   * word's advance in em. Particles that leave the mark first (lowest along
+   * the sweep) take the leftmost glyph points, so the word writes itself left
+   * to right as the front crosses the mark.
+   */
+  setWord(pts: Float32Array, width: number): void
+  /** how many particles form the word (sample that many glyph points) */
+  wordCount: number
 }
 
-export function buildGenesis(o: { count: number; S: number; nebR: number; mobile: boolean }): GenesisCloud {
+/** wordShare: the fraction of eligible particles that form the headline's accent word */
+export function buildGenesis(o: { count: number; S: number; nebR: number; mobile: boolean; wordShare: number }): GenesisCloud {
   const { count: n, S, nebR } = o
   const r = rng(71)
   const gauss = () => {
@@ -270,12 +319,18 @@ export function buildGenesis(o: { count: number; S: number; nebR: number; mobile
   const rand = new Float32Array(n * 4)
   for (let i = 0; i < rand.length; i++) rand[i] = r()
 
+  // ---- D: the word — about a quarter of the particles (never the absorbed
+  // ones, never the rare white stars) stream off the mark into the headline
+  const text = new Float32Array(n * 4)
+
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3))
   g.setAttribute('aNeb', new THREE.BufferAttribute(neb, 3))
   g.setAttribute('aMark', new THREE.BufferAttribute(mark, 3))
   g.setAttribute('aHalo', new THREE.BufferAttribute(halo, 4))
   g.setAttribute('aRand', new THREE.BufferAttribute(rand, 4))
+  const textAttr = new THREE.BufferAttribute(text, 4)
+  g.setAttribute('aText', textAttr)
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4)
 
   // sweep diagonally across the mark: lower-left → upper-right
@@ -286,6 +341,43 @@ export function buildGenesis(o: { count: number; S: number; nebR: number; mobile
     const s = mark[i * 3] * dir.x + mark[i * 3 + 1] * dir.y
     if (s < sMin) sMin = s
     if (s > sMax) sMax = s
+  }
+
+  // word particles in departure order: along the sweep (+ a little noise)
+  const wordIdx: number[] = []
+  for (let i = 0; i < n; i++) {
+    const w = rand[i * 4 + 3]
+    if (w >= 0.16 && w < 0.95 && r() < o.wordShare) wordIdx.push(i)
+  }
+  const sOf = (i: number) => mark[i * 3] * dir.x + mark[i * 3 + 1] * dir.y
+  const wordKey = new Map<number, number>()
+  for (const i of wordIdx) wordKey.set(i, (sOf(i) - sMin) / Math.max(1e-5, sMax - sMin) + (r() - 0.5) * 0.12)
+  wordIdx.sort((a, b) => wordKey.get(a)! - wordKey.get(b)!)
+  const setWord = (pts: Float32Array, width: number) => {
+    const m = Math.min(wordIdx.length, pts.length / 2)
+    if (!m) return
+    // glyph points by x (+ noise), paired with the departure order
+    const order = Array.from({ length: pts.length / 2 }, (_, k) => k)
+    const key = new Float32Array(order.length)
+    for (let k = 0; k < order.length; k++) key[k] = pts[k * 2] / Math.max(1e-3, width) + (r() - 0.5) * 0.14
+    order.sort((a, b) => key[a] - key[b])
+    for (let k = 0; k < wordIdx.length; k++) {
+      const i = wordIdx[k]
+      const o4 = i * 4
+      if (k >= m) {
+        text[o4 + 2] = 0
+        continue
+      }
+      const g2 = order[Math.floor((k / m) * order.length)] * 2
+      const s01 = k / Math.max(1, m - 1)
+      text[o4] = pts[g2]
+      text[o4 + 1] = pts[g2 + 1]
+      text[o4 + 2] = 1
+      // departure: follows the front across the mark
+      text[o4 + 3] = s01 * 0.34 + rand[i * 4] * 0.06
+    }
+    u.uTextW.value = width
+    textAttr.needsUpdate = true
   }
 
   // the nebula disc: tilted ~45° from face-on, major axis rolled
@@ -326,6 +418,20 @@ export function buildGenesis(o: { count: number; S: number; nebR: number; mobile
     uViolet: { value: c(G.violet) },
     uPeach: { value: c(G.peach) },
     uWhite: { value: c(G.white) },
+    // the word
+    uTextT: { value: 0 },
+    uTextFade: { value: 0 },
+    uTextOn: { value: 0 },
+    uTextD: { value: 8 },
+    uTextW: { value: 3 },
+    uTextSize: { value: 0.78 },
+    uTextA: { value: 0.95 },
+    uTextDrift: { value: 0.12 },
+    uTextC: { value: new THREE.Vector2() },
+    uTextK: { value: new THREE.Vector2(0.1, 0.1) },
+    uGradA: { value: c('#8fd0ff') },
+    uGradB: { value: c('#a99bff') },
+    uGradC: { value: c(G.peach) },
   }
   const make = (side: number, list: 'opaque' | 'transparent') => {
     const uniforms = { ...u, uSide: { value: side } }
@@ -356,5 +462,5 @@ export function buildGenesis(o: { count: number; S: number; nebR: number; mobile
   const front = make(1, 'transparent')
   front.renderOrder = 4
   group.add(behind, front)
-  return { group, u, dir, sMin, sMax, ringRot, ringR }
+  return { group, u, dir, sMin, sMax, ringRot, ringR, setWord, wordCount: wordIdx.length }
 }

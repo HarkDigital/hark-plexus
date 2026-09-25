@@ -387,10 +387,12 @@ export default function create(): Chapter {
       snap = false
       graph.sync(t, lit, 0.4 + 0.6 * build)
       const clear = Math.max(outAll, introMix * 0.6)
+      // a hovered bead swells a touch (lights only under reduced motion / Motion off)
+      const hovGrow = rm || frame.still ? 0 : 0.04
       for (let i = 0; i < N; i++) {
         const l = lit[i]
         const bead = graph.beads[i]
-        bead.scale.setScalar((0.94 + 0.14 * l + 0.04 * hov[i]) * (0.6 + 0.4 * build))
+        bead.scale.setScalar((0.94 + 0.14 * l + hovGrow * hov[i]) * (0.6 + 0.4 * build))
         const m = graph.beadMats[i]
         m.roughness = lerp(lerp(0.2, 0.012, l), 0.03, clear) + 0.3 * (1 - build)
         m.specularIntensity = lerp(0.6, 1, Math.max(l, clear))
@@ -446,7 +448,7 @@ export default function create(): Chapter {
         offB: nodeOff(j, offB),
         ptr,
         ptrK: ptrK * (1 - outAll),
-        ptrR: 0.15,
+        ptrR: 0.19,
       })
 
       /* ---- the hub mark (always faces the camera) */

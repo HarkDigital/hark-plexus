@@ -9,30 +9,43 @@ import { G } from '../../kit/glass'
 import { buildGenesis, type GenesisCloud } from './genesis'
 import { buildGlassMark, type GlassMark } from './mark'
 import { PlexusRing } from './plexus'
+import { sampleWord } from './word'
 import './hero.css'
 
 /*
- * HERO — "Genesis". Particles become glass.
+ * HERO — "Genesis". Particles become glass, and the glass becomes a network.
  *
- *   0.00–0.10  INTRO      a spiral nebula of ~11k particles turns slowly in
+ *   0.00–0.08  INTRO      a spiral nebula of ~11k particles turns slowly in
  *                         front of the network; the cursor parts it. After
  *                         the loader it breathes in from the dark (~1.6 s).
- *   0.10–0.33  CONDENSE   scroll spirals every particle in around the view
+ *                         Eyebrow, manifesto and 'Scroll to connect' hold
+ *                         through the condense (the manifesto to ~0.27, the
+ *                         eyebrow + hint to ~0.35).
+ *   0.08–0.30  CONDENSE   scroll spirals every particle in around the view
  *                         axis until they settle into the Hark mark; the
  *                         backdrop network leans toward it.
- *   0.36–0.52  CRYSTALLIZE a front sweeps diagonally across the particle
- *                         mark: behind it the mark is GLASS (thick loops, an
- *                         ice crystal core that ignites as the front passes
- *                         its heart); at it the particles flare, a few are
- *                         absorbed, the rest lift off and spiral out into an
- *                         orbit ring. A light sweep runs with the front.
- *   0.46–0.62  the plexus ring (linked nodes riding the orbit) spreads out;
- *                         the camera glides the mark right of centre.
- *   0.62–0.93  PAYOFF     the glass mark floats inside its orbiting ring;
- *                         tagline + CTAs. The cursor repels nodes and grabs
- *                         lines to them; a click sends a soft ring through
- *                         the particles.
- *   0.93–1.00  OUT        the camera drifts into the crystal core.
+ *   0.31–0.45  CRYSTALLIZE a front sweeps diagonally across the particle
+ *                         mark: behind it the mark is GLASS, and its heart is
+ *                         a live mini-constellation (a node in each hook's eye,
+ *                         a hub where the diamond sat) whose nodes ignite and
+ *                         whose links grow as the front passes. At the front
+ *                         the particles flare; most lift off into the orbit
+ *                         ring, and a quarter STREAM OFF INTO THE HEADLINE:
+ *                         they write 'listen.' left to right where the DOM
+ *                         word will sit. A light sweep runs with the front.
+ *   0.39–0.52  the camera glides the mark right of centre (portrait: up) and
+ *                         the plexus ring spreads out; the payoff copy comes
+ *                         in (0.44–0.50) around the particle word.
+ *   0.49–0.56  the DOM 'listen.' crossfades in over its particle twin, and
+ *                         the particles drift apart and fade.
+ *   0.52–0.93  PAYOFF     the glass mark floats inside its orbiting ring;
+ *                         tagline + CTAs (anchor 0.8). The cursor repels nodes
+ *                         and grabs lines to them; a click sends a soft ring
+ *                         through the particles.
+ *   0.93–1.00  OUT        the camera drifts into the constellation heart; once
+ *                         the particle cut owns the frame the glass is hidden
+ *                         and the backdrop network steps back (no one can see
+ *                         them under the dots, and they are the priciest pixels).
  *
  * Every pose and form is derived from `local`; frame.time only drives idle
  * spin, float and twinkle (so it all holds still when motion is off).
@@ -89,8 +102,17 @@ export default function create(): Chapter {
 
   // DOM
   let intro: HTMLElement
+  let manifesto: HTMLElement
   let payoff: HTMLElement
   let title: HTMLElement
+  let accentOn = -1
+
+  // the particle word: its DOM twin's box (CSS px, relative to the canvas)
+  let canvasEl: HTMLCanvasElement
+  let wordReady = false
+  let wordW = 3
+  let wordDirty = true
+  let wordOk = false
 
   // reveal clock (performance seconds)
   let revealAt = -1
@@ -120,17 +142,34 @@ export default function create(): Chapter {
   const viewLocal = new THREE.Vector3()
   const localPlane = new THREE.Plane()
   const tmpV = new THREE.Vector3()
-  const ZERO2 = new THREE.Vector2()
+  /** the dust's pointer pull, eased to rest when motion is off (never a snap) */
+  const dustPtr = new THREE.Vector2()
 
   const shotAt = (local: number, portrait: boolean, out: Shot) => {
     const T = portrait ? PORT : LAND
-    const w1 = sm(local, 0.06, 0.3)
-    const w2 = sm(local, 0.5, 0.64)
+    const w1 = sm(local, 0.05, 0.28)
+    const w2 = sm(local, 0.35, 0.47)
     const w3 = Math.pow(segment(local, 0.925, 1), 1.6)
     for (const k of Object.keys(out) as (keyof Shot)[]) {
       out[k] = lerp(lerp(lerp(T.intro[k], T.gen[k], w1), T.pay[k], w2), T.out[k], w3)
     }
     return out
+  }
+
+  /** the DOM accent word's box → the particle word's screen placement (on resize / font load only) */
+  const measureWord = () => {
+    wordDirty = false
+    const em = title.querySelector('em')
+    const c = canvasEl.getBoundingClientRect()
+    const r = em?.getBoundingClientRect()
+    const fs = parseFloat(getComputedStyle(title).fontSize)
+    wordOk = !!r && r.width > 4 && r.height > 4 && fs > 0 && c.width > 0 && c.height > 0
+    if (!wordOk || !r) return
+    // the <em> carries 0.04em of padding-right; fit the sampled advance to the rest
+    const kx = clamp((r.width - 0.04 * fs) / Math.max(1, wordW * fs), 0.85, 1.15)
+    const u = cloud.u
+    u.uTextC.value.set((2 * (r.left - c.left)) / c.width - 1, 1 - (2 * (r.top + r.height / 2 - c.top)) / c.height)
+    u.uTextK.value.set((2 * fs * kx) / c.width, (2 * fs) / c.height)
   }
 
   return {
@@ -145,10 +184,10 @@ export default function create(): Chapter {
       // the crystallization front clips the glass (materials opt in with clippingPlanes)
       ctx.renderer.localClippingEnabled = true
 
-      cloud = buildGenesis({ count: mobile ? 4800 : 11000, S, nebR: NEB_R, mobile })
+      cloud = buildGenesis({ count: mobile ? 4800 : 11000, S, nebR: NEB_R, mobile, wordShare: mobile ? 0.34 : 0.3 })
       group.add(cloud.group)
       await nextFrame()
-      mark = buildGlassMark(mobile)
+      mark = buildGlassMark(mobile, S)
       mark.logo.root.scale.setScalar(S)
       mark.pivot.visible = false
       group.add(mark.pivot)
@@ -167,7 +206,8 @@ export default function create(): Chapter {
       // ---- DOM
       intro = el('div', 'gx-intro', undefined, ctx.stage)
       el('p', 'hud-eyebrow', MICROCOPY.signalEyebrow, intro)
-      el('p', 'hud-body gx-manifesto', BRAND.manifesto, intro)
+      // (wrapped: the wrapper takes the entrance, the paragraph its own scroll fade)
+      manifesto = el('p', 'hud-body gx-manifesto', BRAND.manifesto, el('div', 'gx-man', undefined, intro))
       const hint = el('p', 'hud-label gx-hint', undefined, intro)
       el('span', 'gx-hint-line', undefined, hint).setAttribute('aria-hidden', 'true')
       el('span', '', MICROCOPY.scrollHint, hint)
@@ -175,7 +215,12 @@ export default function create(): Chapter {
       payoff = el('div', 'gx-payoff', undefined, ctx.stage)
       const inner = el('div', 'gx-payoff-inner', undefined, payoff)
       el('p', 'hud-label gx-locale', BRAND.locale, inner)
-      title = rise(el('h1', 'hud-title gx-title', undefined, inner), 'Make the internet <em>listen.</em>')
+      // the tagline, its last word the accent (the one the particles write)
+      const words = BRAND.tagline.split(' ')
+      const accent = words.pop() ?? ''
+      title = rise(el('h1', 'hud-title gx-title', undefined, inner), `${words.join(' ')} <em>${accent}</em>`)
+      const wraps = title.querySelectorAll<HTMLElement>('.rise-w')
+      wraps[wraps.length - 1]?.classList.add('gx-accent')
       const ctas = el('div', 'gx-ctas', undefined, inner)
       const see = el('button', 'hud-btn', 'See the work', ctas)
       see.type = 'button'
@@ -187,6 +232,36 @@ export default function create(): Chapter {
         e.preventDefault()
         window.__hark.land('contact')
       })
+
+      // ---- the particle word: glyph targets in the headline's own face, once it has loaded
+      canvasEl = ctx.renderer.domElement
+      const cs = getComputedStyle(title)
+      const family = cs.fontFamily || "'Sora Variable', 'Sora', system-ui, sans-serif"
+      const weight = parseFloat(cs.fontWeight) || 560
+      const tracking = (parseFloat(cs.letterSpacing) || -0.052 * 100) / (parseFloat(cs.fontSize) || 100)
+      const buildWord = () => {
+        const w = sampleWord(accent, cloud.wordCount, { family, weight, tracking: Number.isFinite(tracking) ? tracking : -0.052 })
+        cloud.setWord(w.pts, w.width)
+        wordW = w.width
+        wordReady = true
+        wordDirty = true
+      }
+      const face = `${weight} 100px ${family}`
+      const loaded = document.fonts?.load ? document.fonts.load(face, accent).catch(() => []) : Promise.resolve([])
+      await Promise.race([loaded, new Promise(r => setTimeout(r, 2500))])
+      const faceOk = () => {
+        try {
+          return document.fonts ? document.fonts.check(face, accent) : true
+        } catch {
+          return true
+        }
+      }
+      const early = faceOk()
+      buildWord()
+      // the face was late: sample again in the real one when it arrives
+      if (!early) void loaded.then(() => faceOk() && buildWord())
+      window.addEventListener('resize', () => (wordDirty = true), { passive: true })
+      document.fonts?.addEventListener?.('loadingdone', () => (wordDirty = true))
 
       window.addEventListener('pointermove', e => (mouse = e.pointerType === 'mouse'), { passive: true })
       document.documentElement.addEventListener('pointerleave', () => (mouse = false))
@@ -220,14 +295,19 @@ export default function create(): Chapter {
       const rFrost = reduced ? 0 : 1 - sm(since, 0.05, 1.3)
 
       // ---- the story, from local
-      const condense = sm(local, 0.1, 0.33)
-      const sweep = segment(local, 0.36, 0.52)
+      const condense = sm(local, 0.08, 0.3)
+      const sweep = segment(local, 0.31, 0.45)
       const hot = S * 0.07
       const front = lerp(cloud.sMin - hot * 1.5, cloud.sMax + S * 0.9 * 1.35, sweep)
-      const glassOn = local > 0.355
-      // how far the front has crossed the mark (0..1): drives the core and the light sweep
+      const glassOn = local > 0.305
+      // how far the front has crossed the mark (0..1): drives the heart and the light sweep
       const cross = clamp((front - cloud.sMin) / (cloud.sMax - cloud.sMin))
-      const settled = sm(local, 0.5, 0.62)
+      const settled = sm(local, 0.4, 0.5)
+      // the particle cut owns the frame (the image is all dots): hide what no one can see.
+      // First the glass lets go of its reflections (uniform values only: no program
+      // changes), so hiding it at 0.5 swaps a clear pane for nothing — no step in the dots.
+      const underCut = ctx.post.transition > 0.5
+      const glassK = 1 - smoothstep(0.12, 0.48, ctx.post.transition)
       const dive = Math.pow(segment(local, 0.93, 1), 1.4)
 
       // ---- camera shot
@@ -280,6 +360,15 @@ export default function create(): Chapter {
         u.uSplitZ.value = tmpV.z
       } else u.uSplitZ.value = 1e6
 
+      // ---- the particle word: a quarter of the mark streams into 'listen.'
+      if (wordDirty && wordReady) measureWord()
+      u.uTextOn.value = wordOk ? 1 : 0
+      u.uTextT.value = segment(local, 0.32, 0.49)
+      u.uTextFade.value = sm(local, 0.505, 0.57)
+      // a plane a little in front of the mark (so the word draws over the glass list)
+      u.uTextD.value = Math.max(0.5, -pos.dot(F) * 0.82)
+      u.uTextDrift.value = reduced ? 0 : 0.12
+
       // ---- the glass mark
       mark.pivot.visible = glassOn
       if (glassOn) {
@@ -292,25 +381,35 @@ export default function create(): Chapter {
         // idle float + sway (only once the sweep has passed, so glass and particles align)
         const free = settled
         // a turn that shows the glass's depth, settling at a slight three-quarter
-        const turn = 0.3 * Math.sin(Math.PI * segment(local, 0.47, 0.68)) + 0.16 * sm(local, 0.55, 0.7)
+        // (settling turned a touch TOWARD the camera — the shot sits the mark off-axis —
+        // so the heart reads through the hooks' eyes)
+        const turn = 0.3 * Math.sin(Math.PI * segment(local, 0.35, 0.55)) - 0.1 * sm(local, 0.42, 0.55)
         mark.pivot.rotation.set(
-          (0.05 * Math.sin(t * 0.33 * calm) + 0.02) * free,
-          turn + 0.13 * Math.sin(t * 0.41 * calm) * free,
+          (0.04 * Math.sin(t * 0.33 * calm) - 0.03) * free,
+          turn + 0.08 * Math.sin(t * 0.41 * calm) * free,
           0.02 * Math.sin(t * 0.27 * calm) * free,
         )
         mark.pivot.position.set(0, 0.05 * Math.sin(t * 0.8 * calm) * free, 0)
         const coreK = smoothstep(0.42, 0.62, cross)
-        mark.coreMat.emissiveIntensity = lerp(0.1, 1.05, coreK) * (1 + dive * 0.4)
-        mark.rimMat.uniforms.uStrength.value = 0.4 * smoothstep(0.2, 1, cross)
-        glow.intensity = 0.9 * coreK
+        mark.rimMat.uniforms.uStrength.value = 0.4 * smoothstep(0.2, 1, cross) * glassK
+        glow.intensity = 0.55 * coreK
+        // the heart: nodes ignite and links grow behind the same front as the glass
+        mark.heart.update(t * calm, f, cloud.dir, hot, 1 + dive * 0.35, !reduced)
       } else {
         glow.intensity = 0
       }
+      // the glass under the cut: visibility on the meshes (their walls and rims ride along)
+      mark.logo.loopA.visible = !underCut
+      mark.logo.loopB.visible = !underCut
+      mark.loopMat.specularIntensity = glassK
+      // (clearcoat stays > 0 on desktop: a 0 would switch the program)
+      if (mark.coat > 0) mark.loopMat.clearcoat = Math.max(0.002, mark.coat * glassK)
+      mark.wallMat.opacity = glassK
       mark.pivot.updateMatrixWorld()
       glow.position.copy(mark.coreCentre).multiplyScalar(S).applyMatrix4(mark.pivot.matrixWorld)
 
       // ---- the plexus ring (payoff): nodes spread out from the mark
-      const grow = sm(local, 0.46, 0.6)
+      const grow = sm(local, 0.36, 0.48)
       const plexK = grow * (1 - smoothstep(0.945, 0.99, local))
       camLocal.copy(pos)
       viewLocal.copy(F)
@@ -323,7 +422,10 @@ export default function create(): Chapter {
       plexus.update(t, t * 0.14 * calm + local * 2.2, grow, plexK, ptrLocal, ptrK, S * 0.6, camLocal, viewLocal, glassOn)
 
       // ---- dust (the Particles.tsx look: magnetism toward the pointer)
-      dust.update(t * calm, reduced || mobile ? ZERO2 : frame.pointer, 0.55 * rv * (1 - dive))
+      const still = reduced || mobile || !!frame.still
+      dustPtr.x = damp(dustPtr.x, still ? 0 : frame.pointer.x, 3, frame.dt)
+      dustPtr.y = damp(dustPtr.y, still ? 0 : frame.pointer.y, 3, frame.dt)
+      dust.update(t * calm, dustPtr, 0.55 * rv * (1 - dive))
 
       // ---- world: night-blue studio, the network leaning toward the forming mark
       const wp = ctx.world.params
@@ -332,8 +434,9 @@ export default function create(): Chapter {
       wp.a = G.violet
       wp.b = '#56b4ff'
       // the network steps back while the particles take the stage, then returns
-      wp.net = lerp(lerp(0.55, 0.5, condense), 0.95, settled) * lerp(0.4, 1, rv)
-      wp.gather = 0.2 * Math.sin(Math.PI * segment(local, 0.1, 0.42)) * (1 - settled)
+      // (and steps back again under the cut: the dots replace the image anyway)
+      wp.net = lerp(lerp(0.55, 0.5, condense), 0.95, settled) * lerp(0.4, 1, rv) * (1 - smoothstep(0.35, 0.8, ctx.post.transition))
+      wp.gather = 0.2 * Math.sin(Math.PI * segment(local, 0.08, 0.38)) * (1 - settled)
       wp.pointer = lerp(lerp(1, 0.55, condense), 0.75, settled)
       const yaw = Math.atan2(F.x, -F.z)
       const pitch = Math.asin(clamp(F.y, -1, 1))
@@ -363,10 +466,19 @@ export default function create(): Chapter {
       pp.frost = Math.max(rFrost * 0.7, reduced ? 0 : 0.24 * smoothstep(0.955, 1, local))
 
       // ---- DOM
-      reveal(intro, 1 - smoothstep(0.065, 0.105, local))
+      // the intro holds through the condense: the manifesto to ~0.27, eyebrow + hint to ~0.35
+      reveal(intro, 1 - smoothstep(0.3, 0.355, local))
+      reveal(manifesto, 1 - smoothstep(0.21, 0.27, local))
       intro.classList.toggle('is-in', revealAt >= 0 && since > (reduced ? 0 : 0.45))
-      reveal(payoff, smoothstep(0.585, 0.655, local) * (1 - smoothstep(0.925, 0.96, local)), 0)
-      setRise(title, local > 0.6 && local < 0.945)
+      // the payoff comes in as the glass locks, around the particle word
+      reveal(payoff, smoothstep(0.44, 0.5, local) * (1 - smoothstep(0.925, 0.96, local)), 0)
+      setRise(title, local > 0.455 && local < 0.945)
+      // the DOM accent crossfades in over its particle twin (scroll-driven, not the rise)
+      const acc = Math.round((wordOk ? sm(local, 0.495, 0.54) : sm(local, 0.46, 0.5)) * 100) / 100
+      if (acc !== accentOn) {
+        accentOn = acc
+        title.style.setProperty('--gx-accent', String(acc))
+      }
     },
 
     camera(_local: number, _frame: Frame, out: CameraPose) {

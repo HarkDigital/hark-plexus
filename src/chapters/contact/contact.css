@@ -253,18 +253,29 @@
   white-space: nowrap;
 }
 
-/* ---- the sign-off under the halo (positioned by index.ts) */
+/* ---- the sign-off under the halo: a display line that bookends Genesis.
+   Positioned (top-left) by index.ts; the dust writes it first (scene.ts), so
+   keep its box tight — the particles are sampled from these exact boxes. */
 .stage-contact .ct-signoff {
   position: absolute;
   left: 0;
   top: 0;
   margin: 0;
   white-space: nowrap;
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  color: rgba(226, 236, 255, 0.86);
-  text-shadow: 0 0 18px rgba(6, 7, 26, 0.9);
+  font-size: clamp(22px, 2.9vw, 44px);
+  line-height: 1.08;
+  text-wrap: nowrap;
+  isolation: isolate;
   pointer-events: none;
+}
+/* a soft dark scrim so the line never sits directly on bright nodes */
+.stage-contact .ct-signoff::before {
+  content: '';
+  position: absolute;
+  inset: -55% -9%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(5, 6, 26, 0.62), rgba(5, 6, 26, 0.34) 55%, rgba(5, 6, 26, 0));
 }
 
 /* ---- fit levels (measured in hud.ts): short screens step the card down.
@@ -377,6 +388,9 @@
   .stage-contact .ct-body {
     max-width: 52ch;
   }
+  .stage-contact .ct-signoff {
+    font-size: clamp(22px, 5.4vw, 40px);
+  }
 }
 
 @media (max-width: 480px) {
@@ -453,25 +467,61 @@
     padding: 15px 14px;
   }
 }
-/* short phones (≈375×667): the concepts become one row of chips that scrolls
-   sideways, so the mark keeps a window above the card */
+/* short phones (≈375×667): every concept stays visible — the chips wrap onto
+   three compact rows and the card pays for them with tighter spacing and a
+   one-line colophon (Back to top · ©; the locale already signs Genesis).
+   [class] lifts these over the measured fit levels above. */
 @media (max-width: 480px) and (max-height: 720px) and (orientation: portrait) {
-  .stage-contact .ct-links {
+  .stage-contact[class] .ct-eyebrow {
+    margin-bottom: 8px;
+  }
+  .stage-contact[class] .ct-title {
+    margin-bottom: 8px;
+  }
+  .stage-contact[class] .ct-body {
+    font-size: 13px;
+    line-height: 1.42;
+    margin-bottom: 12px;
+  }
+  .stage-contact[class] .ct-mail,
+  .stage-contact[class] .ct-copy {
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
+  .stage-contact[class] .ct-rule {
+    margin: 12px 0 8px;
+  }
+  .stage-contact[class] .ct-more {
+    gap: 6px;
+  }
+  .stage-contact[class] .ct-links {
+    gap: 4px;
+  }
+  .stage-contact[class] .ct-link {
+    min-height: 24px;
+    font-size: 11.5px;
+    padding: 0 6px 0 5px;
+    gap: 3px;
+  }
+  .stage-contact[class] .ct-node {
+    width: 4px;
+    height: 4px;
+  }
+  .stage-contact[class] .ct-foot {
     flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-    margin: 0 -20px;
-    padding: 1px 20px;
-    pointer-events: auto;
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 30px), transparent);
-    mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 30px), transparent);
+    margin-top: 8px;
+    gap: 0 12px;
   }
-  .stage-contact .ct-links::-webkit-scrollbar {
-    display: none;
-  }
-  .stage-contact .ct-links > li {
+  .stage-contact[class] .ct-top {
     flex: none;
+  }
+  .stage-contact[class] .ct-legal {
+    white-space: nowrap;
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+  }
+  .stage-contact[class] .ct-locale {
+    display: none;
   }
 }
 
@@ -535,7 +585,7 @@
     letter-spacing: 0.04em;
   }
   .stage-contact .ct-signoff {
-    display: none;
+    font-size: 18px;
   }
 }
 

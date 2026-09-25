@@ -4,21 +4,23 @@ import { el, rise, setRise } from '../../core/dom'
 import { clamp, damp, lerp, smoothstep } from '../../core/math'
 import { nextFrame } from '../../core/yield'
 import { SECTIONS, TESTIMONIALS } from '../../content'
-import { G, edgeGlow, glass } from '../../kit/glass'
+import { G, glass } from '../../kit/glass'
 import { Dust } from '../../kit/particles'
-import { EchoRings, EchoWave, lensUniforms, type VoiceSig } from './wave'
+import { EchoGrille, EchoRings, EchoWave, lensUniforms, type VoiceSig } from './wave'
 import './voices.css'
 
 /*
  * ECHOES (voices) — "Hark" means listen, so the testimonials are heard.
  *
  * A luminous sound wave of particles runs across the frame and through a tall
- * glass lens (a flattened capsule, like a microphone's capsule) that bends the
- * living network behind it and magnifies the wave where it passes through.
- * Faint ripple rings of particles expand from the lens. Every client's voice
- * has its own wave signature — amplitude, frequency, strands, pace — and the
- * wave swirls from one to the next as the quotes change, starting at the lens
- * and rippling outward. The pointer plucks the wave; a click sends an echo.
+ * glass capsule (a microphone's capsule: its grille a mesh of particle dots
+ * over the caps, a band ring at each seam) that bends the living network
+ * behind it and magnifies the wave where it passes through. Its rim carries a
+ * thin-film sheen (ice → violet → peach, faked in a rim shader: no
+ * iridescence cost). Faint ripple rings of particles expand from the lens.
+ * Every client's voice has its own wave signature — amplitude, frequency,
+ * strands, pace — and the wave swirls from one to the next as the quotes
+ * change, starting at the lens and rippling outward. The pointer plucks the wave; a click sends an echo.
  *
  *   0.000–0.095  intro: the particles gather into a calm listening line;
  *                "We listen. They talk." (settled at 0.06 and at 0.08)
@@ -125,6 +127,48 @@ interface Layout {
   halfW: number
 }
 
+/**
+ * A fresnel rim whose hue runs like a thin film (ice → violet → peach, never
+ * green): the capsule's sheen without MeshPhysicalMaterial's iridescence pass.
+ */
+function filmRim(uniforms: Record<string, THREE.IUniform>): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+    uniforms,
+    vertexShader: /* glsl */ `
+      varying vec3 vN; varying vec3 vV; varying float vY;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        vY = position.y;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uIce, uViolet, uPeach;
+      uniform float uShift, uStrength;
+      varying vec3 vN; varying vec3 vV; varying float vY;
+      void main() {
+        float f = 1.0 - abs(dot(normalize(vN), normalize(vV)));
+        float f2 = f * f;
+        // the silhouette line, plus a faint film across the shoulders
+        float r = f2 * f + 0.1 * f2;
+        // the film's phase thickens toward the edge and drifts along the body
+        float ph = 6.2831853 * (0.85 * f + 0.16 * vY + uShift);
+        float wi = 0.5 + 0.5 * cos(ph);
+        float wv = 0.5 + 0.5 * cos(ph - 2.0943951);
+        float wp = 0.5 + 0.5 * cos(ph + 2.0943951);
+        vec3 film = (uIce * wi + uViolet * wv + uPeach * wp) * (1.0 / 1.5);
+        gl_FragColor = vec4(film * r * uStrength, 1.0);
+      }
+    `,
+  })
+}
+
 export default function create(): Chapter {
   const group = new THREE.Group()
   const lensU = lensUniforms()
@@ -136,11 +180,21 @@ export default function create(): Chapter {
   lensRoot.add(lensTilt)
   let lensMesh: THREE.Mesh
   let rimMesh: THREE.Mesh
-  /** lens radius (lens units) and its depth squash: a biconvex disc */
-  const LENS_R = 1.55
-  const LENS_T = 0.27
-  /** the lens diameter in lens units */
-  const LENS_D = 2 * LENS_R
+  let grille: EchoGrille
+  /**
+   * the capsule, in lens units: cap radius (its half-width), half-height and
+   * depth squash — a tall, slightly flattened capsule (width ≈ 0.6 of height)
+   */
+  const CAP_R = 1.02
+  const CAP_H = 1.72
+  const CAP_Z = 0.62
+  const rimU = {
+    uIce: { value: new THREE.Color(G.ice) },
+    uViolet: { value: new THREE.Color(G.violet) },
+    uPeach: { value: new THREE.Color(G.peach) },
+    uShift: { value: 0 },
+    uStrength: { value: 0.62 },
+  }
 
   // DOM
   let intro: HTMLElement
@@ -198,9 +252,9 @@ export default function create(): Chapter {
       const nx = clamp((freeC / w) * 2 - 1, 0.18, 0.5)
       out.lx = nx * out.halfW
       out.ly = (short ? 0.02 : 0.07) * halfH
-      // ~58% of the frame's height, but never reaching over the panel on squarer screens
+      // ~64% of the frame's height, but never reaching over the panel on squarer screens
       const panelRight = ((gutter + panelW) / w) * 2 - 1
-      out.unit = Math.min((0.58 * 2 * halfH) / LENS_D, ((nx - panelRight) * 0.95 * out.halfW) / LENS_R)
+      out.unit = Math.min((0.64 * halfH) / CAP_H, ((nx - panelRight) * 0.95 * out.halfW) / CAP_R)
     } else {
       out.fov = 40
       out.dist = 10
@@ -227,7 +281,8 @@ export default function create(): Chapter {
       const regionW = (region / H) * 2 * halfH
       out.lx = 0
       out.ly = cy * halfH
-      out.unit = Math.min((0.84 * regionW) / LENS_D, (0.8 * 2 * out.halfW) / LENS_D)
+      // the tall capsule fills ~90% of the quote window, less of the intro's larger one
+      out.unit = Math.min((lerp(0.37, 0.45, k) * regionW) / CAP_H, (0.8 * out.halfW) / CAP_R)
     }
   }
 
@@ -351,16 +406,21 @@ export default function create(): Chapter {
   /* ------------------------------------------------------------ lens */
 
   function buildLens(mobile: boolean) {
-    const geo = new THREE.SphereGeometry(LENS_R, mobile ? 64 : 112, mobile ? 40 : 72)
-    geo.scale(1, 1, LENS_T)
+    const geo = new THREE.CapsuleGeometry(CAP_R, 2 * (CAP_H - CAP_R), mobile ? 16 : 28, mobile ? 64 : 112, 1)
+    geo.scale(1, 1, CAP_Z)
     geo.computeBoundingSphere()
-    const mat = glass({ thickness: 1.5, ior: 1.52, dispersion: 0.55, iridescence: 0.18, coat: 0.6, env: 1.1 })
+    // no iridescence (the rim fakes the thin film) and no clearcoat on phones:
+    // together they doubled the chapter's GPU cost there (build-time only)
+    const mat = glass({ thickness: 1.5, ior: 1.52, dispersion: 0.55, coat: mobile ? 0 : 0.6, env: 1.1 })
     lensMesh = new THREE.Mesh(geo, mat)
-    // a fresnel rim of light so the silhouette reads against the night
-    rimMesh = new THREE.Mesh(geo, edgeGlow('#a9c8ff', 3, 0.55))
+    // a fresnel rim of light so the silhouette reads against the night, its
+    // hue running ice → violet → peach like a thin film
+    rimMesh = new THREE.Mesh(geo, filmRim(rimU))
     rimMesh.scale.setScalar(1.006)
     rimMesh.renderOrder = 2
-    lensTilt.add(lensMesh, rimMesh)
+    // the microphone's grille: particle dots on the glass
+    grille = new EchoGrille({ r: CAP_R, h: CAP_H - CAP_R, squash: CAP_Z, spacing: mobile ? 0.12 : 0.095 })
+    lensTilt.add(lensMesh, rimMesh, grille.points)
     group.add(lensRoot)
   }
 
@@ -372,11 +432,11 @@ export default function create(): Chapter {
     camRight.setFromMatrixColumn(cam.matrixWorld, 0).normalize()
     camUp.setFromMatrixColumn(cam.matrixWorld, 1).normalize()
     const s = lensRoot.scale.x
-    // a turned disc: its silhouette narrows toward its (thinner) depth
+    // a turned capsule: its silhouette narrows toward its (thinner) depth
     const ry = lensTilt.rotation.y
     const rx0 = lensTilt.rotation.x
-    const rEff = s * LENS_R * Math.hypot(Math.cos(ry), LENS_T * Math.sin(ry))
-    const halfTall = s * LENS_R * Math.hypot(Math.cos(rx0), LENS_T * Math.sin(rx0))
+    const rEff = s * CAP_R * Math.hypot(Math.cos(ry), CAP_Z * Math.sin(ry))
+    const halfTall = s * CAP_H * Math.hypot(Math.cos(rx0), ((CAP_Z * CAP_R) / CAP_H) * Math.sin(rx0))
     const aspect = cam.aspect || 1
     tmpV.copy(tmpC).project(cam)
     const cx = tmpV.x * aspect
@@ -517,6 +577,18 @@ export default function create(): Chapter {
       // the lens bends the particles only once it has arrived
       lensU.uLensOn.value = introK
 
+      /* ---- the grille hears the voice; a new voice lifts it off the glass ---- */
+      const gu = grille.u
+      const ampNow = lerp(sigOf(tr.from).amp, sigOf(tr.to).amp, settle(tr.raw))
+      gu.uTime.value = tIdle
+      gu.uSize.value = 0.017 * lerp(U, 1, 0.5)
+      gu.uPx.value = px
+      gu.uOpacity.value = introK * (1 - outK * 0.8)
+      gu.uHear.value = calm ? 0 : clamp(ampNow) * (1 - scatter)
+      gu.uLift.value = calm ? 0 : arc
+      // the thin film slides a little with the scroll and as each voice arrives
+      rimU.uShift.value = local * 0.8 + (calm ? 0 : 0.18 * arc * dir)
+
       dust.update(tIdle, calm || ctx.mobile ? zero : frame.pointer, 0.45 * introK)
 
       /* ---- light: night-blue studio, network gathered behind the lens ---- */
@@ -536,9 +608,10 @@ export default function create(): Chapter {
       w.focus.set(ndcX * aspect, L.ly / halfH)
       w.gather = 0.1
       w.pointer = 0.55
-      // at rest the studio leaves the lens's centre clear (a glint and a rim
-      // arc up top); each new voice runs a light strip across the glass
-      w.envTurn = rm ? 0 : 1.3 * arc
+      // the studio's two tall softboxes sit on the capsule's rims (a glint up
+      // top), leaving its middle clear for the wave; each new voice slides the
+      // rim lights along the edges and brightens them, never across the middle
+      w.envTurn = -0.85 + (rm ? 0 : 0.25 * arc * dir)
       w.env = 1.15 + (rm ? 0 : 0.25 * arc)
       w.key = 1.3
       w.keyDir.set(-0.5, 0.8, 0.6)

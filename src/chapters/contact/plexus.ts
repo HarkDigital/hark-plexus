@@ -11,8 +11,8 @@ import * as THREE from 'three'
  *              Constellation.tsx 'glow' look), with a second kind for thin
  *              rings (the visitor's node, the copy pulse).
  *
- * Both are rebuilt from CPU arrays every frame (a few hundred items) and
- * blend additively. They live inside the chapter's rig (scaled), so every
+ * Both are rebuilt from CPU arrays every frame (a few hundred items, no
+ * per-frame allocation) and blend additively. They live inside the chapter's rig (scaled), so every
  * position is in rig units; sizes and widths are screen pixels.
  */
 
@@ -61,6 +61,7 @@ export class Segments {
   private aCA: Float32Array
   private aCB: Float32Array
   private geo: THREE.InstancedBufferGeometry
+  private attrs: THREE.InstancedBufferAttribute[]
   private u = {
     uRes: { value: new THREE.Vector2(1, 1) },
     uHalf: { value: 1.5 },
@@ -81,6 +82,7 @@ export class Segments {
     g.instanceCount = 0
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4)
     this.geo = g
+    this.attrs = ['aA', 'aB', 'aCA', 'aCB'].map(k => g.getAttribute(k) as THREE.InstancedBufferAttribute)
     const m = new THREE.ShaderMaterial({
       uniforms: this.u,
       vertexShader: SEG_VERT,
@@ -121,12 +123,10 @@ export class Segments {
   end(resX: number, resY: number, halfPx: number, opacity = 1) {
     const g = this.geo
     g.instanceCount = this.count
-    for (const k of ['aA', 'aB', 'aCA', 'aCB']) {
-      const a = g.getAttribute(k) as THREE.InstancedBufferAttribute
-      a.clearUpdateRanges()
-      a.addUpdateRange(0, this.count * a.itemSize)
-      a.needsUpdate = true
-    }
+    // whole-buffer uploads (≤ 40 KB): update ranges would allocate a range object
+    // and a sort comparator per attribute per frame inside three
+    const at = this.attrs
+    for (let i = 0; i < at.length; i++) at[i].needsUpdate = true
     this.u.uRes.value.set(resX, resY)
     this.u.uHalf.value = halfPx
     this.u.uOpacity.value = opacity
@@ -178,6 +178,7 @@ export class Sprites {
   private col: Float32Array
   private size: Float32Array
   private kind: Float32Array
+  private attrs: THREE.BufferAttribute[]
   private u = {
     uDpr: { value: 1 },
     uRefZ: { value: 10 },
@@ -195,6 +196,7 @@ export class Sprites {
     g.setAttribute('aKind', new THREE.BufferAttribute(this.kind, 1).setUsage(THREE.DynamicDrawUsage))
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4)
     g.setDrawRange(0, 0)
+    this.attrs = ['position', 'aColor', 'aSize', 'aKind'].map(k => g.getAttribute(k) as THREE.BufferAttribute)
     const m = new THREE.ShaderMaterial({
       uniforms: this.u,
       vertexShader: SPR_VERT,
@@ -227,14 +229,120 @@ export class Sprites {
   end(dpr: number, refZ: number, opacity = 1) {
     const g = this.points.geometry
     g.setDrawRange(0, this.count)
-    for (const k of ['position', 'aColor', 'aSize', 'aKind']) {
-      const a = g.getAttribute(k) as THREE.BufferAttribute
-      a.clearUpdateRanges()
-      a.addUpdateRange(0, this.count * a.itemSize)
-      a.needsUpdate = true
-    }
+    // whole-buffer uploads (small): no per-frame update-range garbage
+    const at = this.attrs
+    for (let i = 0; i < at.length; i++) at[i].needsUpdate = true
     this.u.uDpr.value = dpr
     this.u.uRefZ.value = refZ
     this.u.uOpacity.value = opacity
+  }
+}
+
+/*
+ * Formation: the sign-off written in particles. Each point travels from a
+ * spot on the halo (aFrom) to a spot inside the glyphs of the closing line
+ * (aTo) on a staggered, gently arcing path; colours are per point (white for
+ * the words, the accent gradient across "listen."). Positions are CSS px
+ * about the screen centre (y up) on the rig plane — the group is scaled by
+ * world-units-per-px — so the landed letters sit exactly where the DOM line
+ * crossfades in. Points never move once landed (no shimmer): the last frame
+ * is still.
+ */
+const FORM_VERT = /* glsl */ `
+  attribute vec3 aFrom;
+  attribute vec4 aRand;
+  attribute vec3 aColor;
+  uniform float uMix, uTime, uSize, uDpr, uSwirl;
+  varying vec3 vCol;
+  varying float vA;
+  void main() {
+    float m = clamp((uMix - aRand.x * 0.42) / 0.58, 0.0, 1.0);
+    m = m * m * (3.0 - 2.0 * m);
+    vec3 p = mix(aFrom, position, m);
+    // a sideways arc mid-flight (zero at both ends)
+    float fly = 4.0 * m * (1.0 - m);
+    float a = aRand.z * 6.2831 + uTime * 0.35;
+    p.xy += vec2(sin(a), cos(a * 1.3)) * fly * uSwirl * (0.4 + aRand.y);
+    // peel off the halo softly, land at full strength
+    vA = smoothstep(0.0, 0.22, m);
+    vCol = aColor;
+    gl_PointSize = uSize * uDpr * (0.75 + 0.5 * aRand.w) * (1.0 + 0.6 * fly);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
+`
+const FORM_FRAG = /* glsl */ `
+  uniform float uAlpha;
+  varying vec3 vCol;
+  varying float vA;
+  void main() {
+    float d = length(gl_PointCoord - 0.5) * 2.0;
+    float a = (1.0 - smoothstep(0.35, 1.0, d)) * vA * uAlpha;
+    if (a <= 0.003) discard;
+    gl_FragColor = vec4(vCol * a, 1.0);
+  }
+`
+
+export class Formation {
+  points: THREE.Points
+  /** landed positions (the glyphs), CSS px about the screen centre, y up */
+  readonly to: Float32Array
+  /** start positions (the halo), same frame */
+  readonly from: Float32Array
+  /** linear RGB per point */
+  readonly color: Float32Array
+  /** x: stagger (0 leaves first), y/z/w: size and arc variation */
+  readonly rand: Float32Array
+  private attrs: THREE.BufferAttribute[]
+  private u = {
+    uMix: { value: 0 },
+    uTime: { value: 0 },
+    uSize: { value: 1.6 },
+    uDpr: { value: 1 },
+    uSwirl: { value: 0 },
+    uAlpha: { value: 0 },
+  }
+  constructor(readonly count: number, seed = 5) {
+    const g = new THREE.BufferGeometry()
+    this.to = new Float32Array(count * 3)
+    this.from = new Float32Array(count * 3)
+    this.color = new Float32Array(count * 3)
+    const rand = new Float32Array(count * 4)
+    this.rand = rand
+    let s = seed >>> 0 || 1
+    for (let i = 0; i < rand.length; i++) rand[i] = (s = (s * 16807) % 2147483647) / 2147483647
+    g.setAttribute('position', new THREE.BufferAttribute(this.to, 3))
+    g.setAttribute('aFrom', new THREE.BufferAttribute(this.from, 3))
+    g.setAttribute('aColor', new THREE.BufferAttribute(this.color, 3))
+    g.setAttribute('aRand', new THREE.BufferAttribute(rand, 4))
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5)
+    this.attrs = ['position', 'aFrom', 'aColor', 'aRand'].map(k => g.getAttribute(k) as THREE.BufferAttribute)
+    const m = new THREE.ShaderMaterial({
+      uniforms: this.u,
+      vertexShader: FORM_VERT,
+      fragmentShader: FORM_FRAG,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    })
+    this.points = new THREE.Points(g, m)
+    this.points.frustumCulled = false
+    // always 'visible' (so it compiles with the chapter); an empty draw range hides it
+    g.setDrawRange(0, 0)
+  }
+  /** after writing to/from/color (on layout only) */
+  commit() {
+    for (let i = 0; i < this.attrs.length; i++) this.attrs[i].needsUpdate = true
+  }
+  /** per frame: mix 0 (on the halo) → 1 (the line); alpha fades the whole cloud */
+  set(mix: number, alpha: number, time: number, sizePx: number, dpr: number, swirlPx: number) {
+    const u = this.u
+    u.uMix.value = mix
+    u.uAlpha.value = alpha
+    u.uTime.value = time
+    u.uSize.value = sizePx
+    u.uDpr.value = dpr
+    u.uSwirl.value = swirlPx
+    this.points.geometry.setDrawRange(0, alpha > 0.003 ? this.count : 0)
   }
 }

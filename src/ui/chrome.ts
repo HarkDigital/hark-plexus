@@ -7,6 +7,7 @@ import { holdInert, releaseInert } from './inert'
 import { mountRotateGate } from './rotate'
 import { bindScene, holdScene, releaseScene } from './scene'
 import { Net2D } from './net2d'
+import { noteChapter } from './fallback'
 
 /*
  * Persistent chrome, in frosted glass, wired like a particle network.
@@ -22,8 +23,12 @@ import { Net2D } from './net2d'
  *                 particle network behind a big nav (a real modal dialog:
  *                 focus trap, Escape, inert background with a fallback,
  *                 focus returns to Menu), 'Start a project', 'Read as a page'
- *                 (?read) and the Sound / Motion switches
- *   bottom-left   Sound: five dots that ride the actual audio while it plays
+ *                 and the Sound / Motion switches. While it is up the chapter
+ *                 copy underneath fades away (html.menu-open), so nothing
+ *                 ghosts through the sheet
+ *   bottom-left   a "Preferences" region (a named landmark, so the pause
+ *                 control is reachable by landmark):
+ *                 Sound: five dots that ride the actual audio while it plays
  *                 (aria-pressed); Motion: a three-node constellation that is
  *                 linked while motion is on (aria-pressed). Motion off sets
  *                 html.motion-off and engine.motion = false (the scene's idle
@@ -35,6 +40,14 @@ import { Net2D } from './net2d'
  *                 hairlines, the path lighting up ice as the story travels
  *                 along it, the current star lit and haloed. Every star is a
  *                 ≥ 24px button
+ *   Read as a page  the static page (?read), opened at the chapter you are on
+ *                 (?read#<id>, kept in step by update()). It closes the
+ *                 Chapters nav as the LAST chrome Tab stop: on a roomy screen
+ *                 a small glass node at the end of the capsule (a page whose
+ *                 lines are strung nodes) with a label on hover / focus;
+ *                 where the capsule is tight (≤ 760px, short landscape) it
+ *                 is hidden until focused, like a skip link, and the Menu
+ *                 sheet carries it too
  *
  * Every text sits on a night-glass fill dense enough for ≥ 4.5:1 over the
  * brightest node the network can put behind it. The always-visible chrome
@@ -59,6 +72,9 @@ const NAV = ['work', 'services', 'contact']
 const MENU_QUERY = '(max-width: 720px)'
 const MOTION_LABEL = 'Motion'
 const MOTION_KEY = 'hark-plexus:motion'
+const READ_LABEL = 'Read as a page'
+/** the static page (main.ts renders the fallback for ?read; it scrolls to the #chapter) */
+const readHref = (id: string) => `?read#${id}`
 /** the pip constellation: one cell per chapter; each star's height in its cell (0..1) */
 const SKY_Y = [0.64, 0.3, 0.56, 0.24, 0.62, 0.36, 0.5]
 
@@ -84,6 +100,8 @@ const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 const MENU_IC = `<svg viewBox="0 0 18 12" aria-hidden="true" focusable="false"><path d="M2 2.5h14M2 9.5h14"/><circle cx="2" cy="2.5" r="1.6"/><circle cx="16" cy="9.5" r="1.6"/></svg>`
 const CLOSE_IC = `<svg viewBox="0 0 18 12" aria-hidden="true" focusable="false"><path d="M4 1l10 10M14 1L4 11"/><circle cx="4" cy="1" r="1.4"/><circle cx="14" cy="11" r="1.4"/><circle cx="14" cy="1" r="1.4"/><circle cx="4" cy="11" r="1.4"/></svg>`
+// a page whose lines are strung nodes (the static copy, drawn as the network)
+const PAGE_IC = `<svg class="ch-page-ic" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path class="ch-page-o" d="M4.6 1.6h6l3.8 3.8v10a1 1 0 0 1-1 1H4.6a1 1 0 0 1-1-1V2.6a1 1 0 0 1 1-1zM10.6 1.6v3.8h3.8"/><path class="ch-page-l" d="M6.4 8.2h5.2M6.4 11h5.2M6.4 13.8h3.4"/><circle cx="6.4" cy="8.2" r="1.15"/><circle cx="6.4" cy="11" r="1.15"/><circle cx="6.4" cy="13.8" r="1.15"/></svg>`
 const MOTION_IC = `<svg class="ch-tri" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path class="ch-tri-l" d="M3.2 13.6L9 3.4l5.8 9.4z"/><circle cx="3.2" cy="13.6" r="2"/><circle cx="9" cy="3.4" r="2"/><circle cx="14.8" cy="12.8" r="2"/></svg>`
 
 export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
@@ -165,16 +183,19 @@ export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
     </header>
 
     <div class="ch-bottom">
-      <div class="ch-togs">${soundBtn()}${motionBtn()}</div>
+      <section class="ch-togs" aria-label="Preferences">${soundBtn()}${motionBtn()}</section>
       <div class="ch-prog ch-glass">
         <p class="ch-read" aria-hidden="true"><span class="ch-read-n"></span><span class="ch-read-l"></span><span class="ch-read-b"></span></p>
-        <nav class="ch-pips" aria-label="Chapters" style="--sky-w:${W}px;--sky-h:${SKY_H}px">
-          <svg class="ch-sky" viewBox="0 0 ${W} ${SKY_H}" aria-hidden="true" focusable="false">
-            ${cross}
-            <polyline class="ch-sky-base" points="${poly}"/>
-            <polyline class="ch-sky-lit" points="${poly}"/>
-          </svg>
-          <ol>${pips}</ol>
+        <nav class="ch-chapters" aria-label="Chapters">
+          <div class="ch-pips" style="--sky-w:${W}px;--sky-h:${SKY_H}px">
+            <svg class="ch-sky" viewBox="0 0 ${W} ${SKY_H}" aria-hidden="true" focusable="false">
+              ${cross}
+              <polyline class="ch-sky-base" points="${poly}"/>
+              <polyline class="ch-sky-lit" points="${poly}"/>
+            </svg>
+            <ol>${pips}</ol>
+          </div>
+          <a class="ch-readpage" href="${readHref(slots[0]?.def.id ?? 'hero')}" data-read><span class="ch-readpage-n" aria-hidden="true">${PAGE_IC}</span><span class="ch-readpage-t">${READ_LABEL}</span></a>
         </nav>
       </div>
     </div>
@@ -192,7 +213,7 @@ export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
         <nav class="ch-menu-nav" aria-label="Chapters"><ol class="ch-menu-list">${menuItems}</ol></nav>
         <div class="ch-menu-foot">
           <a class="hud-btn ch-menu-cta" href="#contact" data-go="contact">Start a project</a>
-          <a class="hud-btn hud-btn--ghost ch-menu-read" href="?read">Read as a page</a>
+          <a class="hud-btn hud-btn--ghost ch-menu-read" href="${readHref(slots[0]?.def.id ?? 'hero')}" data-read>${READ_LABEL}</a>
         </div>
         <div class="ch-menu-togs">${soundBtn(' ch-menu-sound')}${motionBtn(' ch-menu-motion')}</div>
         <p class="ch-menu-mail"><a href="mailto:${BRAND.email}">${BRAND.email}</a></p>
@@ -221,6 +242,7 @@ export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
   const lit = $<SVGPolylineElement>('.ch-sky-lit')
   const prog = $('.ch-prog')
   const readEl = $('.ch-read')
+  const readLinks = [...root.querySelectorAll<HTMLAnchorElement>('[data-read]')]
   lit.style.strokeDasharray = `${skyLen} ${skyLen}`
   lit.style.strokeDashoffset = String(skyLen)
 
@@ -405,6 +427,8 @@ export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
     // flush the closed state so the entrance runs
     void menu.offsetWidth
     chr.classList.add('is-menu')
+    // the chapter copy underneath fades out with the sheet's entrance (ui.css)
+    document.documentElement.classList.add('menu-open')
     menuBtn.setAttribute('aria-expanded', 'true')
     holdInert('menu', [
       document.getElementById('stages'),
@@ -431,6 +455,7 @@ export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
     menuOpen = false
     clearTimeout(hideTimer)
     chr.classList.remove('is-menu')
+    document.documentElement.classList.remove('menu-open')
     menuBtn.setAttribute('aria-expanded', 'false')
     releaseInert('menu')
     releaseScene('menu')
@@ -524,6 +549,10 @@ export function createChrome(root: HTMLElement, engine: Engine, sound: Sound) {
         })
         chr.dataset.chapter = activeId
         prog.dataset.chapter = activeId
+        // Read as a page opens the static copy at the chapter you are on
+        const href = readHref(activeId)
+        for (const a of readLinks) a.setAttribute('href', href)
+        noteChapter(activeId)
         placeWire()
       }
 

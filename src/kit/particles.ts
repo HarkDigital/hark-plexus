@@ -6,8 +6,9 @@ import { logoPoints } from '../logo/logo'
  *
  *   new Morph(count, o)          a point cloud that MORPHS between shapes:
  *                                morph.to(slot 'a'|'b', positions) then drive
- *                                morph.set({ mix, time, size, opacity, colorA,
- *                                colorB, swirl }) every frame. mix 0 = shape a,
+ *                                morph.set(o) every frame with ONE reused
+ *                                MorphSet { mix, time, size, opacity, colorA,
+ *                                colorB, swirl, px }. mix 0 = shape a,
  *                                1 = shape b; particles travel on staggered,
  *                                swirling paths (never in straight lines).
  *   shapes                       position generators (Float32Array xyz):
@@ -137,8 +138,13 @@ export class Morph {
     for (let i = 0; i < dst.length; i++) dst[i] = positions[i % n]
     attr.needsUpdate = true
   }
-  /** Per frame. `px` = drawing-buffer height in px (for world-size sprites). */
-  set(o: { mix?: number; time?: number; size?: number; opacity?: number; swirl?: number; px?: number; colorA?: THREE.ColorRepresentation; colorB?: THREE.ColorRepresentation }) {
+  /**
+   * Per frame. `px` = drawing-buffer height in px (for world-size sprites).
+   * Allocation-free: hoist one MorphSet object and reuse it every frame; a
+   * colour given as a string / number is only re-parsed when it changes (a
+   * THREE.Color is copied, so it may be mutated between frames).
+   */
+  set(o: MorphSet) {
     const u = this.u
     if (o.mix !== undefined) u.uMix.value = o.mix
     if (o.time !== undefined) u.uTime.value = o.time
@@ -146,9 +152,29 @@ export class Morph {
     if (o.opacity !== undefined) u.uOpacity.value = o.opacity
     if (o.swirl !== undefined) u.uSwirl.value = o.swirl
     if (o.px !== undefined) u.uPx.value = o.px
-    if (o.colorA !== undefined) u.uColorA.value.set(o.colorA)
-    if (o.colorB !== undefined) u.uColorB.value.set(o.colorB)
+    if (o.colorA !== undefined && o.colorA !== this.lastA) {
+      u.uColorA.value.set(o.colorA)
+      this.lastA = typeof o.colorA === 'object' ? undefined : o.colorA
+    }
+    if (o.colorB !== undefined && o.colorB !== this.lastB) {
+      u.uColorB.value.set(o.colorB)
+      this.lastB = typeof o.colorB === 'object' ? undefined : o.colorB
+    }
   }
+  private lastA: THREE.ColorRepresentation | undefined
+  private lastB: THREE.ColorRepresentation | undefined
+}
+
+/** Morph.set options: keep one per Morph and reuse it every frame (no per-frame allocation). */
+export interface MorphSet {
+  mix?: number
+  time?: number
+  size?: number
+  opacity?: number
+  swirl?: number
+  px?: number
+  colorA?: THREE.ColorRepresentation
+  colorB?: THREE.ColorRepresentation
 }
 
 /* ---------------------------------------------------------------- shapes */

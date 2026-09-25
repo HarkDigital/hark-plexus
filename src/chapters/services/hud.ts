@@ -60,8 +60,10 @@ export class Hud {
     this.card = el('div', 'sv-card hud-panel hud-panel--strong', undefined, this.col)
     const head = el('p', 'hud-label sv-head', undefined, this.card)
     el('span', 'sv-dot', undefined, head).setAttribute('aria-hidden', 'true')
-    this.cur = el('span', 'sv-cur', '01', head)
-    el('span', 'sv-of', ` / ${pad(SERVICES.length)}`, head)
+    // one inline run ("02 / 11"), so the head's flex gap never widens the slash
+    const count = el('span', 'sv-count', undefined, head)
+    this.cur = el('span', 'sv-cur', '01', count)
+    el('span', 'sv-of', ` / ${pad(SERVICES.length)}`, count)
     const stack = el('div', 'sv-stack', undefined, this.card)
     for (const s of SERVICES) {
       const root = el('div', 'sv-item', undefined, stack)

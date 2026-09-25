@@ -65,7 +65,7 @@ async function boot() {
     teardown()
     canvas.remove()
     stages?.remove()
-    renderFallback(track)
+    renderFallback(track, engine.slots[engine.state.index]?.def.id)
   }
   engine.assets.onProgress = (done, total) => loader.progress(total ? done / total : 0)
   if (document.fonts?.ready) engine.assets.track(document.fonts.ready)

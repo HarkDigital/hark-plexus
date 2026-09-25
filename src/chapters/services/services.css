@@ -111,6 +111,9 @@
     0 0 0 3px rgba(136, 196, 255, 0.16),
     0 0 14px rgba(136, 196, 255, 0.75);
 }
+.stage-services .sv-count {
+  white-space: nowrap;
+}
 .stage-services .sv-cur {
   color: var(--fg);
   font-variant-numeric: tabular-nums;

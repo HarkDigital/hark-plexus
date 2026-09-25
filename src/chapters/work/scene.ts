@@ -12,22 +12,26 @@ import {
   LINK_VERT,
   MAX_EDGES,
   MAX_STARS,
+  SHOT_FRAG,
+  SHOT_VERT,
   STAR_FRAG,
+  STAR_LINK_FRAG,
+  STAR_LINK_VERT,
   STAR_VERT,
 } from './shaders'
 
 /*
  * The Constellation set: six thin glass tiles (the featured projects) float
  * in a loose zig-zag like the bright stars of a constellation, each with its
- * site's screenshot just inside the front face and a soft backlight halo;
- * glowing links join them (and nine small stars: the rest of the portfolio),
+ * site's screenshot on the front face (crisp at any glass-buffer scale) and a
+ * soft backlight halo; glowing links join them (and nine small stars: the
+ * rest of the portfolio, each a tiny particles.js constellation of its own),
  * and a signal of particles flows along every link. The glass refracts the
  * world's backdrop network AND the links/particles behind it (those are drawn
  * in the opaque pass, additive, so the transmission pass captures them).
  *
  * Per frame the chapter drives: tile poses and material strengths, the
- * per-edge glow / flow phase / draw-on uniforms, the stars' lit values and
- * the two 'pixel' pools (a star opening into a dot-matrix of its site).
+ * per-edge glow / flow phase / draw-on uniforms, and the stars' lit values.
  */
 
 /* tile: outer size incl. bevel, the screenshot inside (1280x800 aspect) */
@@ -80,8 +84,8 @@ export function listPos(p: readonly number[], portrait: boolean, out: THREE.Vect
   return out.set(LIST_CENTRE.x + (p[0] - 0.7) * sx, LIST_CENTRE.y + (p[1] - 0.05) * 1.05, LIST_CENTRE.z + (p[2] + 0.4) * 0.6)
 }
 
-/** Accent per tile: ice and violet, one peach and one rose as rare counterpoints (never green). */
-export const ACCENTS = [G.ice, G.violet, '#9fd0ff', G.peach, '#a99bff', G.rose]
+/** Accent per tile: ice and violet, one peach as the rare warm counterpoint (never green). */
+export const ACCENTS = [G.ice, G.violet, '#9fd0ff', G.peach, '#a99bff', '#cfe4ff']
 
 type Node = { kind: 't' | 's'; i: number }
 const T = (i: number): Node => ({ kind: 't', i })
@@ -125,10 +129,19 @@ export interface Tile {
   pivot: THREE.Group
   glassMat: THREE.MeshPhysicalMaterial
   shot: THREE.Mesh
-  shotMat: THREE.MeshBasicMaterial
+  shotMat: THREE.ShaderMaterial & { uniforms: ShotUniforms }
   rimMat: THREE.ShaderMaterial
   haloMat: THREE.ShaderMaterial
   restQ: THREE.Quaternion
+}
+
+export interface ShotUniforms {
+  [name: string]: THREE.IUniform
+  uMap: { value: THREE.Texture }
+  uBright: { value: number }
+  uOpacity: { value: number }
+  uSheen: { value: number }
+  uSheenK: { value: number }
 }
 
 interface PtrUniforms {
@@ -160,6 +173,11 @@ export interface Constellation {
     points: THREE.Points
     u: { uStarPos: { value: THREE.Vector3[] }; uLit: { value: number[] }; uRing: { value: number[] }; uTime: { value: number }; uSize: { value: number }; uPx: { value: number }; uMaxPx: { value: number }; uFade: { value: number }; uColor: { value: THREE.Color }; uAlt: { value: THREE.Color } } & PtrUniforms
   }
+  /** the thin lines inside each star's own little constellation (shares uStarPos / uLit / uTime with the stars) */
+  starLinks: {
+    mesh: THREE.Mesh
+    u: { uTime: { value: number }; uFade: { value: number }; uRes: { value: THREE.Vector2 }; uWidth: { value: number }; uColor: { value: THREE.Color } } & PtrUniforms
+  }
   dust: Dust
 }
 
@@ -167,8 +185,12 @@ function ptrUniforms(): PtrUniforms {
   return { uPtr: { value: new THREE.Vector2(9, 9) }, uPtrK: { value: 0 }, uAspect: { value: 1.6 } }
 }
 
-/** additive, drawn in the opaque pass (so glass refracts it), depth-tested, never writes depth */
-function additive(vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform>) {
+/**
+ * additive, drawn in the opaque pass (so glass refracts it), depth-tested,
+ * never writes depth. Screen-space ribbons are two-sided: their winding
+ * follows the segment's on-screen direction, so one side would be culled.
+ */
+function additive(vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform>, side: THREE.Side = THREE.FrontSide) {
   return new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
@@ -178,6 +200,7 @@ function additive(vertexShader: string, fragmentShader: string, uniforms: Record
     depthTest: true,
     blending: THREE.AdditiveBlending,
     toneMapped: false,
+    side,
   })
 }
 
@@ -220,10 +243,10 @@ export function buildConstellation(mobile: boolean): Constellation {
   const haloPlane = new THREE.Vector2(TW + 1.8, TH + 1.8)
   const haloGeo = new THREE.PlaneGeometry(haloPlane.x, haloPlane.y)
   const base = glass({ thickness: 0.3, dispersion: 0.4, env: 1.1, coat: 0.3, ior: 1.5 })
-  // phones: the transmission buffer is half resolution, so the screenshot
-  // sits ON the face there (sharp); desktop sets it just inside the slab,
-  // seen through the front face and refracted as the tile turns
-  const shotZ = mobile ? FRONT + 0.003 : -0.004
+  // the screenshot sits ON the front face everywhere: the glass buffer is a
+  // fraction of the frame, so a shot seen through it would blur. Drawn in the
+  // transparent pass, over the glass, so fading it reveals glass, not black.
+  const shotZ = FRONT + 0.003
   const e = new THREE.Euler()
   const tiles: Tile[] = TILE_POS.map((p, k) => {
     const tileRoot = new THREE.Group()
@@ -239,8 +262,20 @@ export function buildConstellation(mobile: boolean): Constellation {
     rim.scale.setScalar(1.004)
     rim.renderOrder = 3
     pivot.add(rim)
-    const shotMat = new THREE.MeshBasicMaterial({ map: placeholderTexture('#12163a'), toneMapped: true })
-    shotMat.color.setScalar(0.86)
+    const shotU: ShotUniforms = {
+      uMap: { value: placeholderTexture('#12163a') },
+      uBright: { value: 0.86 },
+      uOpacity: { value: 1 },
+      uSheen: { value: -1 },
+      uSheenK: { value: 0 },
+    }
+    const shotMat = new THREE.ShaderMaterial({
+      vertexShader: SHOT_VERT,
+      fragmentShader: SHOT_FRAG,
+      uniforms: shotU,
+      transparent: true,
+      depthWrite: true,
+    }) as THREE.ShaderMaterial & { uniforms: ShotUniforms }
     const shot = new THREE.Mesh(shotGeo, shotMat)
     shot.position.z = shotZ
     pivot.add(shot)
@@ -300,7 +335,7 @@ export function buildConstellation(mobile: boolean): Constellation {
     uHot: { value: new THREE.Color('#eef6ff') },
     uOpacity: { value: 1 },
   }
-  const linkMesh = new THREE.Mesh(lg, additive(LINK_VERT, LINK_FRAG, linkU))
+  const linkMesh = new THREE.Mesh(lg, additive(LINK_VERT, LINK_FRAG, linkU, THREE.DoubleSide))
   linkMesh.frustumCulled = false
   linkMesh.renderOrder = 1
   root.add(linkMesh)
@@ -352,19 +387,43 @@ export function buildConstellation(mobile: boolean): Constellation {
   root.add(flow)
 
   // ---------------------------------------------------------------- the nine small stars
-  const PER_STAR = mobile ? 44 : 80
+  // each: a core, a few nodes drifting around it (a tiny particles.js
+  // constellation, linked by thin lines below) and an orbit ring for the chosen one
+  const NODES = mobile ? 7 : 9
   const PER_RING = mobile ? 26 : 48
   const so: number[] = []
   const sr: number[] = []
   const si: number[] = []
   const r2 = rng(97)
+  /** node homes per star (index 0 = the core at the centre) */
+  const homes: [number, number, number, number][][] = []
   STAR_POS.forEach((_, j) => {
-    for (let q = 0; q <= PER_STAR + PER_RING; q++) {
-      const kind = q === 0 ? 1 : q > PER_STAR ? 2 : 0
-      const k = 0.55
-      so.push(gauss(r2) * k, gauss(r2) * k * 0.8, gauss(r2) * k)
+    // spread the nodes around the core: one per sector, jittered, so every
+    // star reads as a small constellation rather than a clump
+    const h: [number, number, number, number][] = [[0, 0, 0, 0]]
+    const rot = r2() * Math.PI * 2
+    for (let n = 0; n < NODES; n++) {
+      const a = rot + ((n + 0.2 + r2() * 0.6) / NODES) * Math.PI * 2
+      const rad = n % 3 === 0 ? 0.45 + r2() * 0.2 : 0.75 + r2() * 0.3
+      h.push([Math.cos(a) * rad, Math.sin(a) * rad * 0.82, (r2() - 0.5) * 0.3, r2()])
+    }
+    homes.push(h)
+    // core
+    so.push(0, 0, 0)
+    sr.push(r2(), r2(), r2(), r2())
+    si.push(j, 1)
+    // nodes (aRand.z carries the node's phase: the lines read the same value)
+    for (let n = 1; n <= NODES; n++) {
+      const [x, y, z, ph] = h[n]
+      so.push(x, y, z)
+      sr.push(r2(), r2(), ph, r2())
+      si.push(j, 0)
+    }
+    // orbit ring
+    for (let q = 0; q < PER_RING; q++) {
+      so.push(gauss(r2) * 0.55, gauss(r2) * 0.44, gauss(r2) * 0.55)
       sr.push(r2(), r2(), r2(), r2())
-      si.push(j, kind)
+      si.push(j, 2)
     }
   })
   const sg = new THREE.BufferGeometry()
@@ -391,6 +450,51 @@ export function buildConstellation(mobile: boolean): Constellation {
   stars.renderOrder = 2
   root.add(stars)
 
+  // every node pair of a star (core included) is a candidate line; the shader
+  // fades it by distance and culls the ones out of range
+  const la: number[] = []
+  const lb: number[] = []
+  const lInfo: number[] = []
+  const lIdx: number[] = []
+  homes.forEach((h, j) => {
+    for (let a = 0; a < h.length; a++)
+      for (let b = a + 1; b < h.length; b++) {
+        const v0 = lInfo.length / 3
+        for (const [side, end] of [
+          [-1, 0],
+          [1, 0],
+          [-1, 1],
+          [1, 1],
+        ]) {
+          la.push(...h[a])
+          lb.push(...h[b])
+          lInfo.push(j, side, end)
+        }
+        lIdx.push(v0, v0 + 1, v0 + 2, v0 + 2, v0 + 1, v0 + 3)
+      }
+  })
+  const slg = new THREE.BufferGeometry()
+  slg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(lInfo.length), 3))
+  slg.setAttribute('aA', new THREE.Float32BufferAttribute(la, 4))
+  slg.setAttribute('aB', new THREE.Float32BufferAttribute(lb, 4))
+  slg.setAttribute('aInfo', new THREE.Float32BufferAttribute(lInfo, 3))
+  slg.setIndex(lIdx)
+  slg.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4)
+  const starLinkU = {
+    ...ptrUniforms(),
+    uStarPos: starU.uStarPos,
+    uLit: starU.uLit,
+    uTime: { value: 0 },
+    uFade: { value: 1 },
+    uRes: { value: new THREE.Vector2(1440, 900) },
+    uWidth: { value: 1.2 },
+    uColor: { value: new THREE.Color('#a9d0ff') },
+  }
+  const starLinkMesh = new THREE.Mesh(slg, additive(STAR_LINK_VERT, STAR_LINK_FRAG, starLinkU, THREE.DoubleSide))
+  starLinkMesh.frustumCulled = false
+  starLinkMesh.renderOrder = 2
+  root.add(starLinkMesh)
+
   // ---------------------------------------------------------------- ambient dust (depth + pointer magnetism)
   const dust = new Dust({
     count: mobile ? 180 : 420,
@@ -410,6 +514,7 @@ export function buildConstellation(mobile: boolean): Constellation {
     link: { mesh: linkMesh, u: linkU },
     flow: { points: flow, u: flowU },
     stars: { points: stars, u: starU },
+    starLinks: { mesh: starLinkMesh, u: starLinkU },
     dust,
   }
 }

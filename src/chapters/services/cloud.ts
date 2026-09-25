@@ -43,11 +43,17 @@ const VERT = /* glsl */ `
       cos(uTime * (0.6 + aRand.x) + aRand.w * 9.0),
       sin(uTime * (0.5 + aRand.w) + aRand.y * 7.0)
     ) * uShimmer * (0.5 + aRand.w);
-    // pointer repulse (particles.js): a soft bubble around the pointer
+    // pointer repulse (particles.js): the glyph PARTS around the pointer.
+    // Inside the radius R, a particle's distance s = r/R moves out to about
+    // s + a(1-s)^2 (a ~0.5): a clear hole opens under the pointer and the
+    // displaced particles bank up in a lit ring at its edge; at R and beyond
+    // nothing moves, so the rest of the icon holds its shape.
     vec3 d = p - uPtr;
     float r = length(d);
-    float k = uPtrK * (1.0 - smoothstep(0.0, uPtrR, r));
-    p += (d / max(r, 1e-4)) * k * uPtrR * (0.45 + 0.35 * aRand.y);
+    float R = max(uPtrR, 1e-3);
+    float s = clamp(r / R, 0.0, 1.0);
+    float k = uPtrK * (1.0 - s) * (1.0 - s);
+    p += (d / max(r, 1e-4)) * k * R * (0.5 + 0.08 * aRand.y);
     vFly = fly;
     vTone = aRand.w;
     vPush = k;
@@ -69,10 +75,12 @@ const FRAG = /* glsl */ `
     vec2 c = gl_PointCoord - 0.5;
     float d = length(c);
     float core = 1.0 - smoothstep(0.0, 0.5, d);
-    float a = core * core * uOpacity * vTw * (1.0 + vPush * 0.6);
+    float a = core * core * uOpacity * vTw * (1.0 + vPush * 0.5);
     if (a <= 0.003) discard;
     vec3 col = mix(uColA, uColB, vTone);
     col = mix(col, uColFly, clamp(vFly * 0.85, 0.0, 1.0));
+    // the parted ring warms toward white
+    col = mix(col, uColB, clamp(vPush * 0.6, 0.0, 1.0));
     gl_FragColor = vec4(col * a, 1.0);
   }
 `

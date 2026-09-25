@@ -152,15 +152,25 @@ export function buildHud(stage: HTMLElement): Hud {
     if (e.detail === 0) hark.engine?.focusChapter('hero')
   })
   const legal = el('p', 'ct-legal', undefined, foot)
-  const parts = [`© ${new Date().getFullYear()} ${BRAND.name}`, ...BRAND.locale.split(' · ')]
-  parts.forEach((p, i) => {
-    if (i) legal.append(' · ')
-    el('span', 'ct-nw', p, legal)
-  })
+  el('span', 'ct-nw', `© ${new Date().getFullYear()} ${BRAND.name}`, legal)
+  // the locale is its own run so the shortest phones can keep the colophon on one line
+  const locale = el('span', 'ct-locale', undefined, legal)
+  for (const p of BRAND.locale.split(' · ')) {
+    locale.append(' · ')
+    el('span', 'ct-nw', p, locale)
+  }
 
-  // the sign-off under the halo (the tagline, verbatim), shown for the final still
-  const signoff = el('p', 'hud-label ct-signoff', BRAND.tagline, stage)
+  // the sign-off under the halo: the tagline (verbatim) as a display line that
+  // bookends Genesis. Particles write it first (scene.ts), then the type
+  // crossfades in. Each word is its own box so the particles can match it.
+  const signoff = el('p', 'hud-h2 ct-signoff', undefined, stage)
   signoff.setAttribute('aria-hidden', 'true')
+  const tw = BRAND.tagline.split(' ')
+  tw.forEach((w, i) => {
+    if (i) signoff.append(' ')
+    if (i === tw.length - 1) el('span', 'ct-sw', w, el('em', '', undefined, signoff))
+    else el('span', 'ct-sw', w, signoff)
+  })
 
   const hud: Hud = { stage, probe, wrap, panel, title, mail, copyBtn, signoff, dirty: true, copiedAt: -1e9, hover: false }
 
@@ -208,6 +218,35 @@ export function buildHud(stage: HTMLElement): Hud {
   window.addEventListener('resize', dirty)
   document.fonts?.ready.then(dirty).catch(() => {})
   return hud
+}
+
+/** The sign-off line as laid out by CSS: box size, font and each word's box (CSS px, line-relative). */
+export interface SignSpec {
+  w: number
+  h: number
+  fontPx: number
+  weight: string
+  family: string
+  /** letter-spacing, px */
+  spacing: number
+  words: { text: string; x: number; w: number; accent: boolean }[]
+}
+
+/** Measure the sign-off (on layout only). Null when CSS hides it. */
+export function measureSignoff(hud: Hud): SignSpec | null {
+  const n = hud.signoff
+  const w = n.offsetWidth
+  const h = n.offsetHeight
+  if (!w || !h) return null
+  const cs = getComputedStyle(n)
+  const fontPx = parseFloat(cs.fontSize) || 32
+  const ls = parseFloat(cs.letterSpacing)
+  const words: SignSpec['words'] = []
+  n.querySelectorAll<HTMLElement>('.ct-sw').forEach(s => {
+    // the line is absolutely positioned, so it is each word's offsetParent
+    words.push({ text: s.textContent ?? '', x: s.offsetLeft, w: s.offsetWidth, accent: !!s.closest('em') })
+  })
+  return { w, h, fontPx, weight: cs.fontWeight || '560', family: cs.fontFamily, spacing: Number.isFinite(ls) ? ls : 0, words }
 }
 
 const FIT = ['ct-fit-1', 'ct-fit-2', 'ct-fit-3'] as const

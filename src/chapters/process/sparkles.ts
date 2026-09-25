@@ -39,6 +39,9 @@ function makeSprite(color: string): HTMLCanvasElement {
   return c
 }
 
+/** the rim constellation's line colour (ice) */
+const LINK = 'rgb(159, 208, 255)'
+
 const PAD_X = 40
 const PAD_TOP = 150
 const PAD_BOTTOM = 8
@@ -65,6 +68,8 @@ export class TileSparkles {
     private host: HTMLElement,
     private tiles: HTMLElement[],
     perTile: number,
+    /** local where the first points start to settle (all are down ~0.087 later) */
+    private settleAt = 0.79,
   ) {
     this.canvas = document.createElement('canvas')
     this.canvas.className = 'pr-sparkles'
@@ -150,7 +155,7 @@ export class TileSparkles {
       const R = this.rects[this.stacked ? 0 : p.tile]
       const tx = R.x + p.fx * R.w
       const ty = R.y + p.oy
-      const raw = calm ? (local > 0.8 ? 1 : 0) : Math.min(1, Math.max(0, (local - (0.79 + p.delay * 0.045)) / 0.042))
+      const raw = calm ? (local > this.settleAt + 0.01 ? 1 : 0) : Math.min(1, Math.max(0, (local - (this.settleAt + p.delay * 0.045)) / 0.042))
       const e = 1 - Math.pow(1 - raw, 3)
       let x = tx + p.sx * (1 - e) + Math.sin(e * Math.PI) * 14 * Math.sin(p.seed)
       let y = ty + p.sy * (1 - e)
@@ -178,9 +183,10 @@ export class TileSparkles {
       const s = p.size
       g.drawImage(this.sprites[p.sprite], x - s / 2, y - s / 2, s, s)
     }
-    // a faint constellation along each rim (settled points only)
-    g.globalAlpha = 1
+    // a faint constellation along each rim (settled points only; alpha per
+    // line through globalAlpha, so no colour string is built per frame)
     g.lineWidth = 0.75
+    g.strokeStyle = LINK
     const L = 46
     for (let i = 0; i < pts.length; i++) {
       if (this.pa[i] < 0.02) continue
@@ -191,8 +197,7 @@ export class TileSparkles {
         const dy = this.py[i] - this.py[j]
         const d2 = dx * dx + dy * dy
         if (d2 > L * L) continue
-        const a = (1 - Math.sqrt(d2) / L) * 0.55 * Math.min(this.pa[i], this.pa[j])
-        g.strokeStyle = `rgba(159, 208, 255, ${a.toFixed(3)})`
+        g.globalAlpha = (1 - Math.sqrt(d2) / L) * 0.55 * Math.min(this.pa[i], this.pa[j])
         g.beginPath()
         g.moveTo(this.px[i], this.py[i])
         g.lineTo(this.px[j], this.py[j])

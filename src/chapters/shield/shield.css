@@ -19,6 +19,22 @@
 
 .stage-shield .sh-eyebrow {
   max-width: 100%;
+  /* when it wraps (phones), the pill sits on the first line, not between the two */
+  align-items: flex-start;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+.stage-shield .sh-eyebrow::before {
+  flex: none;
+  margin-top: calc(0.75em - 3px);
+}
+.stage-shield .sh-eb {
+  min-width: 0;
+  text-wrap: balance;
+}
+/* each half stays whole, so the only break is at the '·' */
+.stage-shield .sh-eb-part {
+  white-space: nowrap;
 }
 
 .stage-shield .sh-title {

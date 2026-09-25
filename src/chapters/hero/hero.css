@@ -91,6 +91,19 @@
 .stage-hero .gx-title {
   font-size: clamp(3rem, 7.4vw, 7.8rem);
 }
+/* the accent word is written by particles first (index.ts): the DOM word
+   crossfades in over its particle twin on scroll (--gx-accent), instead of
+   rising with the rest of the line */
+.stage-hero .gx-title .rise-w.gx-accent {
+  visibility: inherit;
+  transition: none;
+}
+.stage-hero .gx-title .rise-w.gx-accent > span {
+  opacity: var(--gx-accent, 0);
+  filter: none;
+  transform: none;
+  transition: none;
+}
 .stage-hero .gx-locale {
   margin: 0;
   color: var(--fg-muted);

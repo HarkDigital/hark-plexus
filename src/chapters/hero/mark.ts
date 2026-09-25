@@ -1,22 +1,26 @@
 import * as THREE from 'three'
-import { G, crystal, glass, glassLogo, type GlassLogo } from '../../kit/glass'
+import { glass, glassLogo, type GlassLogo } from '../../kit/glass'
+import { Heart } from './heart'
 
 /*
  * THE GLASS MARK — glassLogo() dressed for Plexus:
  *
  *   loops     clear, thick crystal glass with a faint ice absorption, rainbow
- *             dispersion (desktop) and a clearcoat; they refract the network
- *             and the particles behind them
+ *             dispersion and a clearcoat (desktop; phones get plain
+ *             refraction); they refract the network and the particles
  *   walls     each loop's far wall: its own geometry, back faces only, as an
  *             additive studio sheen in the opaque list (reaches the glass
  *             buffer, so a loop shows depth without double-sided glass)
  *   rims      a whisper of fresnel light on the grazing edges
- *   core      an OPAQUE ice crystal (the loops refract it; a transmissive core
- *             would vanish behind them), brightest at its heart
+ *   heart     NOT a glowing crystal: a live mini-constellation (heart.ts) —
+ *             a node in each hook's eye and a hub where the diamond sat,
+ *             linked, twinkling, with satellites and pulses; the loops
+ *             refract it
  *
- * Every part is clipped by one plane — the crystallization front. Keep points
+ * The glass is clipped by one plane — the crystallization front. Keep points
  * with dot(p, dir) <= front; move the plane far away once the sweep is done
- * (never remove it: the program variant would change mid-scroll).
+ * (never remove it: the program variant would change mid-scroll). The heart
+ * follows the same front with its own ignition.
  */
 
 export interface GlassMark {
@@ -24,10 +28,14 @@ export interface GlassMark {
   logo: GlassLogo
   plane: THREE.Plane
   loopMat: THREE.MeshPhysicalMaterial
-  coreMat: THREE.MeshPhysicalMaterial
+  /** the loops' clearcoat as built (0 on phones) */
+  coat: number
+  /** additive: its opacity scales the sheen */
   wallMat: THREE.MeshStandardMaterial
   rimMat: THREE.ShaderMaterial
-  /** the core's centre in mark units (mark is 1 tall before scaling) */
+  /** the mini-constellation at the mark's heart */
+  heart: Heart
+  /** the heart's hub (where the diamond sat) in mark units (mark is 1 tall before scaling) */
   coreCentre: THREE.Vector3
 }
 
@@ -64,39 +72,23 @@ function rimMaterial(color: THREE.ColorRepresentation, strength: number): THREE.
   })
 }
 
-export function buildGlassMark(mobile: boolean): GlassMark {
+/** mobile: build-time only (no dispersion / clearcoat on phones); S: the mark's world scale */
+export function buildGlassMark(mobile: boolean, S: number): GlassMark {
   const plane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), -1e4)
   const clip = [plane]
 
-  const loopMat = glass({ thickness: 0.5, ior: 1.5, dispersion: 0.6, coat: 0.45, tint: '#d8e8ff', tintDistance: 2.8 }).clone()
+  const coat = mobile ? 0 : 0.45
+  const loopMat = glass({ thickness: 0.5, ior: 1.5, dispersion: 0.6, coat, tint: '#d8e8ff', tintDistance: 2.8 }).clone()
   loopMat.dispersion = mobile ? 0 : 0.6
   loopMat.clippingPlanes = clip
-  const logo = glassLogo({ depth: 0.27, material: loopMat, coreColor: G.ice, coreStrength: 2.2 })
+  const logo = glassLogo({ depth: 0.27, material: loopMat, light: false })
 
-  // an OPAQUE ice crystal: the loops refract it
-  const coreMat = crystal(G.ice, 2.2).clone()
-  coreMat.transmission = 0
-  coreMat.roughness = 0.06
-  coreMat.clippingPlanes = clip
-  logo.core.material = coreMat
+  // the diamond is not drawn: its place is the constellation's hub
   logo.core.geometry.computeBoundingBox()
-  const cb = logo.core.geometry.boundingBox!
-  const coreCentre = cb.getCenter(new THREE.Vector3())
-  const cr = Math.max(cb.max.x - cb.min.x, cb.max.y - cb.min.y) * 0.5
-  coreMat.onBeforeCompile = sh => {
-    sh.uniforms.uCoreC = { value: new THREE.Vector2(coreCentre.x, coreCentre.y) }
-    sh.uniforms.uCoreR = { value: cr }
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vCoreP;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCoreP = position;')
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vCoreP;\nuniform vec2 uCoreC;\nuniform float uCoreR;')
-      .replace(
-        '#include <emissivemap_fragment>',
-        '#include <emissivemap_fragment>\n{ float rr = clamp(length(vCoreP.xy - uCoreC) / uCoreR, 0.0, 1.0); totalEmissiveRadiance *= mix(1.6, 0.3, rr * rr); }',
-      )
-  }
-  coreMat.customProgramCacheKey = () => 'plexus-hero-core'
+  const coreCentre = logo.core.geometry.boundingBox!.getCenter(new THREE.Vector3())
+  coreCentre.z = 0
+  logo.root.remove(logo.core)
+  logo.core.geometry.dispose()
 
   // the loops' far walls + fresnel rims
   const wallMat = new THREE.MeshStandardMaterial({
@@ -119,10 +111,12 @@ export function buildGlassMark(mobile: boolean): GlassMark {
     rim.renderOrder = 3
     loop.add(rim)
   }
+  const heart = new Heart(S, coreCentre, mobile)
+  logo.root.add(heart.group)
   // the glow light lives outside the pivot (the pivot is hidden before the
   // sweep; a light's visibility must never change — intensity only)
   logo.root.remove(logo.glow)
   const pivot = new THREE.Group()
   pivot.add(logo.root)
-  return { pivot, logo, plane, loopMat, coreMat, wallMat, rimMat, coreCentre }
+  return { pivot, logo, plane, loopMat, coat, wallMat, rimMat, heart, coreCentre }
 }

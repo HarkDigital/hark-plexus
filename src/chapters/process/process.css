@@ -338,3 +338,23 @@
     line-height: 1.35;
   }
 }
+
+/* Motion off / reduced motion: the words, steps and tiles swap instantly
+   (the global rules zero the durations; the staggers here are delays) */
+html.motion-off .stage-process .pr-step,
+html.motion-off .stage-process .pr-text,
+html.motion-off .stage-process .pr-tile,
+html.motion-off .stage-process .pr-tile > *,
+html.motion-off .stage-process .rise .rise-w,
+html.motion-off .stage-process .rise .rise-w > span {
+  transition-delay: 0s !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-process .pr-step,
+  .stage-process .pr-text,
+  .stage-process .pr-tile,
+  .stage-process .pr-tile > *,
+  .stage-process .rise .rise-w {
+    transition-delay: 0s !important;
+  }
+}

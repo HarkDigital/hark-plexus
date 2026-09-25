@@ -16,6 +16,6 @@ export const CHAPTERS: ChapterDef[] = [
   { id: 'services', label: 'Nodes', length: 3.8, landing: 0.08, intro: 0.06, load: () => import('./services/index') },
   { id: 'voices', label: 'Echoes', length: 3.0, landing: 0.08, intro: 0.06, load: () => import('./voices/index') },
   { id: 'shield', label: 'Firewall', length: 1.7, landing: 0.45, intro: 0.45, load: () => import('./shield/index') },
-  { id: 'process', label: 'Flow', length: 2.2, landing: 0.17, intro: 0.12, load: () => import('./process/index') },
-  { id: 'contact', label: 'Connect', length: 1.5, landing: 0.3, intro: 0.3, load: () => import('./contact/index') },
+  { id: 'process', label: 'Flow', length: 2.5, landing: 0.17, intro: 0.12, load: () => import('./process/index') },
+  { id: 'contact', label: 'Connect', length: 1.8, landing: 0.3, intro: 0.3, load: () => import('./contact/index') },
 ]

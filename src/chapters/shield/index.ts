@@ -31,13 +31,14 @@ import './shield.css'
  *                        ice and spray off the rim, dissolving; a restore
  *                        line sweeps down the page; warm → 0, the network
  *                        calms to ice blue. Landing 0.45: everything settled.
- *   0.55–0.95  WATCH     the dissolved sparks condense into two tilted
+ *   0.55–0.89  WATCH     the dissolved sparks condense into two tilted
  *                        orbits circling the shield — a watchful ring — while
  *                        a scan ring passes over the cells and light sweeps
  *                        the glass. '24/7' + label + the emergency CTA
- *                        (anchor 0.8). Mouse: cells light under the cursor,
- *                        the ring leans toward it; click sends a ripple.
- *   0.95–1.00  OUT       still.
+ *                        (anchor 0.8); the copy is gone by 0.885. Mouse:
+ *                        cells light under the cursor, the ring leans toward
+ *                        it; click sends a ripple.
+ *   0.89–1.00  OUT       the dot cut into Flow (the engine fades the stage).
  *
  * Everything derives from `local`; frame.time only drives idle motion.
  */
@@ -72,6 +73,7 @@ const T = {
   orbit0: 0.54,
   orbit1: 0.8,
   copyB: 0.615,
+  copyBOut: 0.86,
   scan0: 0.64,
   scan1: 0.86,
 }
@@ -288,7 +290,16 @@ export default function create(): Chapter {
 
       // ---------------- DOM (visual layer; the accessible copy is srContent)
       copyA = el('div', 'sh-a', undefined, stage)
-      eyebrow = el('p', 'hud-eyebrow sh-eyebrow', SECURITY.eyebrow, copyA)
+      // the full eyebrow, in two unbreakable halves: on a phone it wraps at the
+      // '·' ('HACK REMEDIATION ·' / 'WEBSITE & DATA SECURITY'), never orphaning a word
+      eyebrow = el('p', 'hud-eyebrow sh-eyebrow', undefined, copyA)
+      const ebText = el('span', 'sh-eb', undefined, eyebrow)
+      const [ebHead, ...ebTail] = SECURITY.eyebrow.split(' · ')
+      if (ebTail.length) {
+        el('span', 'sh-eb-part', `${ebHead} ·`, ebText)
+        ebText.appendChild(document.createTextNode(' '))
+        el('span', 'sh-eb-part', ebTail.join(' · '), ebText)
+      } else ebText.textContent = SECURITY.eyebrow
       title = el('h2', 'hud-title sh-title', undefined, copyA)
       title.setAttribute('aria-label', SECURITY.title)
       line1 = rise(el('span', 'sh-l1', undefined, title), 'Hacked?')
@@ -495,10 +506,12 @@ export default function create(): Chapter {
       setRise(line2, l > T.breathe && l < T.copyOut)
       title.classList.toggle('is-hot', l < T.breathe + 0.02)
       reveal(panelA, smoothstep(0.32, 0.37, l) * (1 - smoothstep(0.55, 0.585, l)))
-      const inB = l > T.copyB && l < 0.955
-      reveal(copyB, inB ? 1 : smoothstep(0.6, 0.615, l) * (1 - smoothstep(0.955, 0.97, l)), 0)
+      // the settled '24/7' beat ends before the dot cut into Flow (local ≈ 0.894):
+      // panel first, then the stat sinks and the column fades by 0.885
+      const inB = l > T.copyB && l < T.copyBOut
+      reveal(copyB, inB ? 1 : smoothstep(0.6, 0.615, l) * (1 - smoothstep(T.copyBOut, 0.885, l)), 0)
       setRise(stat, inB)
-      reveal(panelB, smoothstep(0.63, 0.68, l) * (1 - smoothstep(0.94, 0.965, l)))
+      reveal(panelB, smoothstep(0.63, 0.68, l) * (1 - smoothstep(0.845, 0.875, l)))
     },
 
     camera(local, frame, out) {

@@ -3,8 +3,8 @@ import type { Chapter, ChapterContext } from '../../core/types'
 import { reveal, setRise } from '../../core/dom'
 import { clamp, damp, ease, lerp, smoothstep } from '../../core/math'
 import { nextFrame } from '../../core/yield'
-import { buildHud, measureHud, type Hud, type HudLayout } from './hud'
-import { buildScene, type ConnectScene } from './scene'
+import { buildHud, measureHud, measureSignoff, type Hud, type HudLayout, type Rect } from './hud'
+import { buildScene, HALO_Y, type ConnectInput, type ConnectScene, type FinaleLayout } from './scene'
 import './contact.css'
 
 /*
@@ -18,16 +18,22 @@ import './contact.css'
  * it (particles.js grab + repulse; touch screens get a gentle wandering
  * visitor). Hovering the address routes a beam from the card to the mark.
  * Then the scene resolves: a loose cloud of dust condenses into three tilted
- * orbits, the nodes glide onto them, and by ~0.87 it is a calm, conclusive
- * still — the mark bright inside a soft halo of light.
+ * orbits and the nodes glide onto them. For the finale the glass mark steps
+ * forward inside its halo while the scaffolding dims, and dust peels off the
+ * halo to WRITE the sign-off — "Make the internet listen.", bookending
+ * Genesis — before the type itself crossfades in. The last frame is still.
  *
  *   0.00–0.06  calm in-beat under the particle cut (frosted, the mark at 3/4)
  *   0.04–0.15  focus pull: the frame clears, the card comes up, "Say hello."
  *   0.05–0.32  the network reaches for the mark (beams grow, packets begin)
  *   0.30       landing / intro: everything settled and alive
  *   0.46–0.87  the dust condenses into orbits, nodes glide onto the halo
- *   0.70–0.88  one last light sweep across the glass; the mark turns front-on
- *   0.86–1.00  the final still (the tagline signs off beneath the halo)
+ *   0.66–0.88  one last light sweep across the glass
+ *   0.74–0.88  the halo makes room for the line; the mark grows x1.4 into a
+ *              3/4 view; beams, lamp and core bloom fall back
+ *   0.80–0.94  dust from the halo writes the sign-off, left to right
+ *   0.92–0.975 the type crossfades in, the dust lets go
+ *   0.975–1.00 the final still
  */
 
 const FOV = 30
@@ -41,12 +47,18 @@ export default function create(): Chapter {
   let lay: HudLayout | null = null
   let lastW = 0
   let lastH = 0
-  // the mark's centre and height, CSS px
+  // the mark's centre and height, CSS px (this frame: base → finale)
   let cx = 0
   let cy = 0
   let unitPx = 200
   let hot = 0
-  let signoffOk = true
+  // the settled layout, and the finale's (the halo steps up, the sign-off beneath)
+  const base = { cx: 0, cy: 0, u: 200 }
+  const fin: FinaleLayout = { cx: 0, cy: 0, u: 200, sx: 0, sy: 0 }
+  const signRect: Rect = { x0: 0, y0: 0, x1: 0, y1: 0 }
+  let signOk = false
+  let layoutId = 0
+  let input: ConnectInput | null = null
   // the visitor node
   let mouse = false
   let visInit = false
@@ -62,20 +74,46 @@ export default function create(): Chapter {
     const a = lay.art
     const aw = Math.max(40, a.x1 - a.x0)
     const ah = Math.max(40, a.y1 - a.y0)
-    if (!lay.portrait) {
-      unitPx = Math.min(ah * 0.34, aw * 0.28)
-      cx = (a.x0 + a.x1) / 2
-      cy = (a.y0 + a.y1) / 2
-    } else {
-      unitPx = Math.min(ah * 0.46, aw * 0.29)
-      cx = (a.x0 + a.x1) / 2
-      cy = (a.y0 + a.y1) / 2
+    // the halo's height and width budgets (portrait lets it rise into the top band's middle)
+    const kh = lay.portrait ? 0.46 : 0.34
+    const kw = lay.portrait ? 0.29 : 0.28
+    base.u = Math.min(ah * kh, aw * kw)
+    base.cx = (a.x0 + a.x1) / 2
+    base.cy = (a.y0 + a.y1) / 2
+
+    // the finale: the halo and the sign-off beneath it share the art area, centred as a group
+    const sp = measureSignoff(hud)
+    signOk = false
+    if (sp) {
+      const gap = Math.max(10, sp.h * 0.4)
+      const u1 = Math.min(aw * kw, (ah - sp.h - gap) * kh)
+      const group = 2 * HALO_Y * u1 + gap + sp.h
+      const top = a.y0 + (ah - group) / 2
+      const lo = (lay.portrait ? 16 : a.x0) + sp.w / 2
+      const hi = (lay.portrait ? W - 16 : a.x1) - sp.w / 2
+      const sy = top + 2 * HALO_Y * u1 + gap + sp.h / 2
+      const limit = lay.portrait ? lay.panel.y0 - 4 : H - 64
+      if (lo <= hi && u1 >= Math.max(36, base.u * 0.6) && sy + sp.h / 2 <= limit) {
+        signOk = true
+        fin.u = u1
+        fin.cx = base.cx
+        fin.cy = top + HALO_Y * u1
+        fin.sx = clamp(base.cx, lo, hi)
+        fin.sy = sy
+        signRect.x0 = fin.sx - sp.w / 2
+        signRect.x1 = fin.sx + sp.w / 2
+        signRect.y0 = sy - sp.h / 2
+        signRect.y1 = sy + sp.h / 2
+        hud.signoff.style.transform = `translate3d(${signRect.x0.toFixed(1)}px, ${signRect.y0.toFixed(1)}px, 0)`
+      }
     }
-    // the sign-off sits under the halo when there is room for it
-    const sy = cy + unitPx * 1.56
-    // clear of the card (portrait) or of the chrome's bottom readout (landscape)
-    signoffOk = sy + 16 < (lay.portrait ? lay.panel.y0 - 8 : H - 72)
-    hud.signoff.style.transform = `translate3d(${cx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translateX(-50%)`
+    if (!signOk) {
+      fin.u = base.u
+      fin.cx = base.cx
+      fin.cy = base.cy
+    }
+    set.layoutText(signOk ? sp : null, W, H, fin)
+    layoutId++
   }
 
   /** camera distance for this local: a slow push-in toward the final still */
@@ -94,7 +132,33 @@ export default function create(): Chapter {
       document.documentElement.addEventListener('pointerleave', () => (mouse = false))
       await nextFrame()
       set = buildScene({ mobile: ctx.mobile })
-      group.add(set.rig)
+      group.add(set.root)
+      // one input object, refilled every frame
+      input = {
+        local: 0,
+        time: 0,
+        dt: 0,
+        calm: false,
+        rm: false,
+        W: 1,
+        H: 1,
+        dpr: 1,
+        resX: 1,
+        resY: 1,
+        unitPx,
+        cx,
+        cy,
+        D: DIST,
+        wpp: 0.01,
+        visitor: vis,
+        panel: null,
+        hot: 0,
+        ctaFrom: null,
+        pulse: 0,
+        presence: 1,
+        layoutId: 0,
+        sign: null,
+      }
       await nextFrame()
     },
 
@@ -111,6 +175,13 @@ export default function create(): Chapter {
       const presence = 0.6 + 0.4 * smoothstep(0.0, 0.1, local)
       const settle = smoothstep(0.5, 0.87, local)
       const quiet = smoothstep(0.8, 0.94, local)
+      const finK = smoothstep(0.74, 0.88, local)
+      const end = smoothstep(0.9, 1.0, local)
+      // the halo makes room for the sign-off
+      const lk = signOk ? finK : 0
+      cx = lerp(base.cx, fin.cx, lk)
+      cy = lerp(base.cy, fin.cy, lk)
+      unitPx = lerp(base.u, fin.u, lk)
 
       // ---- the visitor: the mouse, or a gentle wanderer on touch screens
       let tx = vis.x
@@ -121,12 +192,16 @@ export default function create(): Chapter {
         ty = (0.5 - frame.pointerRaw.y * 0.5) * H
         const p = L.panel
         const inCard = tx > p.x0 && tx < p.x1 && ty > p.y0 && ty < p.y1
-        tk = inCard ? 0.18 : 1
+        // resting on the sign-off, the visitor steps back so the line stays clean
+        const s = signRect
+        const inSign = signOk && tx > s.x0 - 24 && tx < s.x1 + 24 && ty > s.y0 - 24 && ty < s.y1 + 24
+        tk = inCard ? 0.18 : inSign ? 1 - 0.8 * finK : 1
       } else if (touch || !mouse) {
         const t = frame.time
         tx = cx + unitPx * 1.3 * Math.cos(t * 0.16 + 0.6)
         ty = cy - unitPx * 0.95 * Math.sin(t * 0.23 + 1.4)
-        tk = touch ? 0.75 : 0
+        // the wandering visitor rests for the final still
+        tk = touch ? 0.75 * (1 - end) : 0
       }
       if (calm) tk = 0
       if (!visInit) {
@@ -143,29 +218,30 @@ export default function create(): Chapter {
       const since = (performance.now() - hud.copiedAt) / 1000
       const pulse = since >= 0 && since < 1.5 ? since / 1.5 : 0
 
-      set.update({
-        local,
-        time: frame.time,
-        dt: frame.still ? 0 : frame.dt,
-        calm,
-        rm,
-        W,
-        H,
-        dpr: ctx.renderer.domElement.height / Math.max(1, H),
-        resX: ctx.renderer.domElement.width,
-        resY: ctx.renderer.domElement.height,
-        unitPx,
-        cx,
-        cy,
-        D,
-        wpp,
-        visitor: vis,
-        panel: L.panel,
-        hot,
-        ctaFrom: L.ctaFrom,
-        pulse,
-        presence,
-      })
+      const I = input!
+      I.local = local
+      I.time = frame.time
+      I.dt = frame.still ? 0 : frame.dt
+      I.calm = calm
+      I.rm = rm
+      I.W = W
+      I.H = H
+      I.dpr = ctx.renderer.domElement.height / Math.max(1, H)
+      I.resX = ctx.renderer.domElement.width
+      I.resY = ctx.renderer.domElement.height
+      I.unitPx = unitPx
+      I.cx = cx
+      I.cy = cy
+      I.D = D
+      I.wpp = wpp
+      I.panel = L.panel
+      I.hot = hot
+      I.ctaFrom = L.ctaFrom
+      I.pulse = pulse
+      I.presence = presence
+      I.layoutId = layoutId
+      I.sign = signOk ? signRect : null
+      set.update(I)
 
       // ---- the world: the network gathers behind the mark (the glass refracts it)
       const wp = ctx.world.params
@@ -174,7 +250,8 @@ export default function create(): Chapter {
       // (kept small: World's gather moves far nodes out of their 3x3 cell window and
       // clips them into hard-edged half dots above ~0.05 — see coreChangeRequests)
       wp.gather = 0.045 * smoothstep(0.08, 0.7, local)
-      wp.net = 0.62 - 0.24 * quiet
+      // the backdrop steps back for the final beat (the sign-off and the glass carry it)
+      wp.net = 0.62 - 0.2 * quiet - 0.06 * end
       wp.speed = rm ? 0.3 : lerp(1, 0.45, quiet)
       wp.pointer = 0.5
       wp.a = '#6a5cd6'
@@ -191,7 +268,7 @@ export default function create(): Chapter {
       // ---- post: the focus pull out of the cut; the halo glows
       const pp = ctx.post.params
       pp.frost = 0.3 * (1 - smoothstep(0.03, 0.15, local))
-      pp.bloomStrength = 0.6 + 0.14 * settle
+      pp.bloomStrength = 0.6 + 0.14 * settle - 0.24 * finK
       pp.bloomRadius = 0.55
       pp.bloomThreshold = 0.9
       pp.vignette = 0.32
@@ -199,7 +276,8 @@ export default function create(): Chapter {
       // ---- copy
       reveal(hud.panel, smoothstep(0.05, 0.14, local))
       setRise(hud.title, local > 0.08)
-      reveal(hud.signoff, signoffOk ? smoothstep(0.84, 0.92, local) : 0, 0)
+      // the type resolves out of the dust (scene.ts writes it first)
+      reveal(hud.signoff, signOk ? smoothstep(0.92, 0.975, local) : 0, 0)
     },
 
     camera(local, _frame, out) {
@@ -207,7 +285,8 @@ export default function create(): Chapter {
       out.target.set(0, 0, 0)
       out.fov = FOV
       out.roll = 0
-      out.parallax = 0.22
+      // the finale settles (and the written line stays registered with the type)
+      out.parallax = 0.22 * (1 - 0.75 * smoothstep(0.74, 0.9, local))
     },
   }
 }

@@ -11,13 +11,19 @@ import * as THREE from 'three'
  *               lens and ripple outward. The pointer plucks it (repel + swell).
  *   EchoRings   faint concentric ripple rings of particles that expand from
  *               the lens, plus one ring a click can send out (an echo).
+ *   EchoGrille  the microphone's grille, in particles: a fine dotted mesh over
+ *               the glass capsule's two caps and a denser band ring at each
+ *               seam, leaving the middle clear for the wave. It hears the
+ *               voice (rings of light travel from the wave out to the poles)
+ *               and lifts off the glass a touch as each new voice arrives.
  *
- * Both are additive sprites, so three's transmission pass can't refract them.
- * They fake it instead: a particle whose screen position falls inside the
- * glass lens's silhouette is drawn where the lens would show it — magnified
- * about the lens centre (a cylindrical lens: more across than up), hidden if
- * that lands outside the rim, with a rainbow split toward the edges. So the
- * wave is visibly broken and enlarged by the glass, like the network behind.
+ * The wave and rings are additive sprites, so three's transmission pass can't
+ * refract them. They fake it instead: a particle whose screen position falls
+ * inside the glass capsule's silhouette (a stadium) is drawn where the glass
+ * would show it — magnified about the capsule's centre (a vertical cylinder:
+ * more across than up), hidden if that lands outside the rim, with a rainbow
+ * split toward the edges. So the wave is visibly broken and enlarged by the
+ * glass, like the network behind.
  */
 
 export interface VoiceSig {
@@ -45,10 +51,10 @@ export interface VoiceSig {
 /** Screen-space lens shared by every particle piece (set per frame by the chapter). */
 export function lensUniforms() {
   return {
-    /** centre (x·aspect, y in NDC) and the silhouette's radii (an ellipse) */
-    uLens: { value: new THREE.Vector4(0, 0, 0.3, 0.3) },
-    /** magnification across / up */
-    uLensMag: { value: new THREE.Vector2(1.34, 1.34) },
+    /** centre (x·aspect, y in NDC), the silhouette's half-width and half-height (a stadium) */
+    uLens: { value: new THREE.Vector4(0, 0, 0.18, 0.3) },
+    /** magnification across / up: a vertical glass cylinder bends more across */
+    uLensMag: { value: new THREE.Vector2(1.44, 1.14) },
     uLensOn: { value: 1 },
     uAspect: { value: 1.6 },
   }
@@ -62,11 +68,14 @@ const LENS_GLSL = /* glsl */ `
   varying float vGlass;
   varying float vDisp;
 
-  // approximate signed distance to the lens's elliptical silhouette
+  // signed distance to the capsule's silhouette: a vertical stadium
+  // (half-width uLens.z, half-height uLens.w; a circle if it's no taller)
   float lensSD(vec2 p) {
     vec2 r = max(uLens.zw, vec2(1e-4));
-    vec2 q = (p - uLens.xy) / r;
-    return (length(q) - 1.0) * min(r.x, r.y);
+    vec2 q = p - uLens.xy;
+    float seg = max(r.y - r.x, 0.0);
+    q.y -= clamp(q.y, -seg, seg);
+    return length(q) - r.x;
   }
 
   // Bend a clip-space position as if seen through the glass lens.
@@ -406,5 +415,137 @@ export class EchoRings {
     this.points = new THREE.Points(g, m)
     this.points.frustumCulled = false
     this.points.renderOrder = 3
+  }
+}
+
+/* ---------------------------------------------------------------- grille */
+
+const GRILLE_VERT = /* glsl */ `
+  attribute vec4 aG;  // x: signed place along the capsule (0 centre, ±1 poles), y: band ring (1) or mesh (0), z, w: random
+  uniform float uTime, uSize, uPx, uOpacity, uHear, uLift;
+  uniform vec3 uIceC, uWhiteC;
+  varying vec3 vCol;
+  varying float vA;
+
+  void main() {
+    float band = aG.y;
+    float along = abs(aG.x);
+    // a new voice lifts the grille off the glass a touch, then it settles back
+    // (the band ring barely: it stays a clean line on the glass)
+    vec3 p = position + normal * (0.014 + uLift * (0.04 + 0.1 * aG.z) * (1.0 - 0.8 * band));
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+
+    // face-on dots only: the mesh thins out toward the silhouette instead of bunching up
+    vec3 n = normalize(normalMatrix * normal);
+    float facing = dot(n, normalize(-mv.xyz));
+    float face = smoothstep(0.06, 0.5, facing);
+
+    // the grille hears the voice: rings of light travel from the wave to the poles
+    float s = 0.5 + 0.5 * sin(along * 13.0 - uTime * 2.1);
+    float hear = uHear * s * s * (1.0 - 0.5 * along);
+    float tw = 0.82 + 0.18 * sin(uTime * (0.7 + aG.w * 0.9) + aG.w * 40.0);
+    float base = mix(0.2 + 0.16 * (1.0 - along), 0.62, band);
+    vA = uOpacity * face * tw * (base + 0.55 * hear + 0.35 * uLift);
+    vCol = mix(uIceC, uWhiteC, 0.35 + 0.45 * band + 0.3 * hear);
+
+    float px = uSize * (0.75 + 0.5 * aG.w) * (1.0 + 0.35 * band);
+    gl_PointSize = clamp(px * projectionMatrix[1][1] * 0.5 * uPx / max(-mv.z, 0.05), 1.0, 12.0);
+  }
+`
+
+const GRILLE_FRAG = /* glsl */ `
+  varying vec3 vCol;
+  varying float vA;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    float a = (1.0 - smoothstep(0.16, 0.5, d)) * vA;
+    if (a <= 0.003) discard;
+    gl_FragColor = vec4(vCol * a, 1.0);
+  }
+`
+
+export interface GrilleShape {
+  /** cap radius (half-width), in lens units */
+  r: number
+  /** half-length of the straight middle */
+  h: number
+  /** depth squash of the capsule (z scale) */
+  squash: number
+  /** mesh spacing along the surface, lens units */
+  spacing: number
+}
+
+/**
+ * The capsule's grille as dots on its surface (lens units, before the lens's
+ * scale). Add it to the same parent as the glass so it turns with it.
+ */
+export class EchoGrille {
+  points: THREE.Points
+  u = {
+    uTime: { value: 0 },
+    uSize: { value: 0.016 },
+    uPx: { value: 900 },
+    uOpacity: { value: 1 },
+    uHear: { value: 0 },
+    uLift: { value: 0 },
+    uIceC: { value: new THREE.Color('#88c4ff') },
+    uWhiteC: { value: new THREE.Color('#f4f7ff') },
+  }
+  constructor(o: GrilleShape, seed = 23) {
+    const r = rng(seed)
+    const pos: number[] = []
+    const nor: number[] = []
+    const g4: number[] = []
+    const { r: R, h, squash, spacing: d } = o
+    const reach = h + (R * Math.PI) / 2
+    const push = (y: number, phi: number, sgn: number, count: number, offset: number, band: number, along: number) => {
+      // phi: latitude on the cap (0 at the seam, π/2 at the pole)
+      const rho = R * Math.cos(phi)
+      for (let j = 0; j < count; j++) {
+        const th = ((j + offset) / count) * Math.PI * 2
+        const nx = Math.cos(phi) * Math.sin(th)
+        const ny = Math.sin(phi) * sgn
+        const nz = Math.cos(phi) * Math.cos(th)
+        pos.push(rho * Math.sin(th), y, rho * Math.cos(th) * squash)
+        // the squashed surface's normal
+        const l = Math.hypot(nx, ny, nz / squash) || 1
+        nor.push(nx / l, ny / l, nz / squash / l)
+        g4.push(along * sgn, band, r(), r())
+      }
+    }
+    for (const sgn of [1, -1]) {
+      // the band ring at the seam: dense, a line of light around the glass
+      const ringN = Math.round((2 * Math.PI * R) / (d * 0.5))
+      push(sgn * h, 0, sgn, ringN, 0, 1, h / reach)
+      // the mesh over the cap, rows offset by half a step (a woven look)
+      const dPhi = d / R
+      for (let k = 1; ; k++) {
+        const phi = (k + 0.6) * dPhi
+        if (phi > Math.PI / 2 - dPhi * 0.35) break
+        const count = Math.max(1, Math.round((2 * Math.PI * R * Math.cos(phi)) / d))
+        push(sgn * (h + R * Math.sin(phi)), phi, sgn, count, (k % 2) * 0.5, 0, (h + R * phi) / reach)
+      }
+      // the pole
+      push(sgn * (h + R), Math.PI / 2, sgn, 1, 0, 0, 1)
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+    g.setAttribute('aG', new THREE.Float32BufferAttribute(g4, 4))
+    g.computeBoundingSphere()
+    const m = new THREE.ShaderMaterial({
+      uniforms: this.u,
+      vertexShader: GRILLE_VERT,
+      fragmentShader: GRILLE_FRAG,
+      transparent: true,
+      depthWrite: false,
+      // tested against the glass, so only the near side of the grille shows
+      depthTest: true,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    })
+    this.points = new THREE.Points(g, m)
+    this.points.renderOrder = 2
   }
 }

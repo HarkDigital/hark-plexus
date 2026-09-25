@@ -679,3 +679,9 @@ html.motion-off *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
 }
+
+/* Motion off: words appear at once (no stagger) */
+html.motion-off .rise .rise-w,
+html.motion-off .rise .rise-w > span {
+  transition-delay: 0s !important;
+}

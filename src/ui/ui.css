@@ -120,7 +120,7 @@
 }
 /* focus: an ice ring on a dark halo, visible over bright nodes and night alike */
 .chr :focus-visible {
-  outline: 2px solid var(--mint);
+  outline: 2px solid var(--ch-ice-hi);
   outline-offset: 2px;
 }
 .chr .ch-glass:focus-visible {
@@ -476,6 +476,11 @@
 .chr.is-cue .ch-read-n {
   color: var(--ch-ice-hi);
 }
+.ch-chapters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .ch-pips {
   position: relative;
   flex: none;
@@ -589,6 +594,168 @@
   }
 }
 
+/* ---------------- Read as a page: the last chrome Tab stop ----------------
+   Roomy screens: a small glass node closing the capsule — a page whose lines
+   are strung nodes — with its label floating above on hover / focus. Tight
+   screens (≤ 760px, short landscape): hidden until focused (a skip link),
+   then the same label as a pill above the capsule. The label is the link's
+   text either way, so its accessible name never changes. */
+.ch-readpage {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: 2px;
+  border-radius: 50%;
+  color: var(--ch-ink);
+  text-decoration: none;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 60%),
+    rgba(136, 196, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 0 0 1px rgba(159, 208, 255, 0.24);
+  transition:
+    box-shadow 0.35s ease,
+    background-color 0.35s ease;
+}
+.ch-readpage-n {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+.ch-page-ic {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ch-page-o {
+  fill: none;
+  stroke: rgba(244, 247, 255, 0.78);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+}
+.ch-page-l {
+  fill: none;
+  stroke: var(--ch-ice);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-opacity: 0.7;
+}
+.ch-page-ic circle {
+  fill: #fff;
+  filter: drop-shadow(0 0 1.5px rgba(136, 196, 255, 0.95));
+}
+.ch-readpage:hover,
+.ch-readpage:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 1px rgba(159, 208, 255, 0.55),
+    0 0 14px rgba(136, 196, 255, 0.35);
+}
+/* the label: a small night-glass pill above the capsule's right end */
+.ch-readpage-t {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--ch-ink);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 55%),
+    rgba(9, 11, 34, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px rgba(159, 208, 255, 0.26),
+    0 10px 26px rgba(2, 3, 14, 0.4);
+  opacity: 0;
+  transform: translate3d(0, 4px, 0);
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    transform 0.4s var(--ease-out);
+}
+/* strung to its node like a callout: a hairline down to the page, lit at the pill */
+.ch-readpage-t::before,
+.ch-readpage-t::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  pointer-events: none;
+}
+.ch-readpage-t::before {
+  right: 24.5px;
+  width: 1px;
+  height: 18px;
+  background: linear-gradient(180deg, rgba(212, 235, 255, 0.95), rgba(136, 196, 255, 0.15));
+}
+.ch-readpage-t::after {
+  right: 23px;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(136, 196, 255, 0.9);
+}
+.ch-readpage:hover .ch-readpage-t,
+.ch-readpage:focus-visible .ch-readpage-t {
+  opacity: 1;
+  transform: none;
+}
+@media (max-width: 760px), (orientation: landscape) and (max-height: 500px) {
+  .ch-readpage:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* focused: the pill above the capsule, page icon and label together */
+  .ch-readpage:focus {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    display: flex;
+    gap: 9px;
+    width: auto;
+    height: 40px;
+    margin: 0;
+    padding: 0 16px 0 12px;
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 55%),
+      rgba(9, 11, 34, 0.94);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 0 0 1px rgba(159, 208, 255, 0.4),
+      0 10px 26px rgba(2, 3, 14, 0.45);
+  }
+  .ch-readpage:focus .ch-readpage-t {
+    position: static;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    opacity: 1;
+    transform: none;
+  }
+  .ch-readpage-t::before,
+  .ch-readpage-t::after {
+    display: none;
+  }
+}
+
 /* ---------------- menu sheet (≤ 720px) ---------------- */
 .ch-menu {
   position: fixed;
@@ -613,6 +780,15 @@
 }
 .chr.is-menu .ch-menu {
   opacity: 1;
+}
+/* while the sheet is up the chapter copy underneath fades away, so neither the
+   frosted sheet nor the denser lowfx one ever shows a ghost headline through
+   the menu (the frozen scene behind it is texture enough) */
+#stages {
+  transition: opacity 0.3s ease;
+}
+html.menu-open #stages {
+  opacity: 0;
 }
 /* the sheet has its own brand + Close: the chrome underneath steps out of view */
 .ch-top,
@@ -751,6 +927,8 @@
 .ch-menu-togs {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
   gap: 10px;
 }
 .ch-menu-foot .hud-btn {
@@ -896,8 +1074,27 @@
   .ch-ml {
     padding: 6px 2px;
   }
+  /* both switches on one row beside the two buttons */
+  .ch-menu-togs .ch-tgl {
+    gap: 8px;
+    padding: 0 12px 0 11px;
+  }
   .ch-ml-name {
     font-size: 22px;
+  }
+}
+/* narrow bands (a desktop at 300–400% zoom): the capsule keeps just its stars
+   (each one is named) so it clears Sound and Motion */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 600px) {
+  .ch-read {
+    display: none;
+  }
+}
+/* the narrowest bands (1280px at 400%): Sound steps back to the Menu sheet,
+   which carries it too; Motion — the pause control — stays */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 340px) {
+  .ch-togs .ch-sound {
+    display: none;
   }
 }
 
@@ -1098,6 +1295,10 @@
 html.no-webgl,
 html.no-webgl body {
   background: #06071a;
+}
+/* the static page has its own banner: never the live HUD on top of it */
+html.no-webgl #chrome {
+  display: none;
 }
 .fb-bg {
   position: fixed;

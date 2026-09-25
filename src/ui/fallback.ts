@@ -16,7 +16,20 @@ import { releaseInert } from './inert'
  *
  * Landmarks: the banner <header> sits just before <main id="track">, so
  * "Skip to content" (#track) lands on the story itself, past the navigation.
+ *
+ * Where it opens: at `at` when given, else at the chapter the live story was
+ * showing (the chrome notes it with noteChapter(), so a GPU context lost for
+ * good lands the reader where they were, not at an arbitrary scroll offset),
+ * else at the #hash ("Read as a page" links to ?read#<chapter>). "View the
+ * live site" keeps the section being read as its #hash, so the way back lands
+ * on the same chapter.
  */
+
+let liveChapter = ''
+/** the chapter the live story is on (chrome.ts), for a fallback that takes over mid-visit */
+export function noteChapter(id: string) {
+  liveChapter = id
+}
 
 const BUSINESS: Record<string, string> = {
   hero: 'Home',
@@ -56,7 +69,7 @@ function starfield(): string {
     <g class="fb-net-l">${lines}</g><g class="fb-net-h">${halos}</g><g class="fb-net-n">${dots}</g></svg>`
 }
 
-export function renderFallback(root: HTMLElement) {
+export function renderFallback(root: HTMLElement, at?: string) {
   document.documentElement.classList.add('no-webgl')
   unmountRotateGate()
   // boot can fail while the loader or the menu still holds the page inert: let go
@@ -78,10 +91,12 @@ export function renderFallback(root: HTMLElement) {
   // opened from "Read as a page" in a browser that can run the live site: offer the way back
   const params = new URLSearchParams(location.search)
   let live = ''
+  let liveBase = ''
   if (params.has('read')) {
     params.delete('read')
     const q = params.toString()
-    live = `<a class="fb-live" href="${location.pathname}${q ? `?${q}` : ''}">View the live site</a>`
+    liveBase = `${location.pathname}${q ? `?${q}` : ''}`
+    live = `<a class="fb-live" href="${liveBase}${location.hash}">View the live site</a>`
   }
 
   const header = document.createElement('header')
@@ -135,4 +150,45 @@ export function renderFallback(root: HTMLElement) {
     sec.append(kicker, card)
     root.appendChild(sec)
   })
+
+  // open at the chapter asked for, the one the live story was on, or the #hash
+  const ids = [...root.querySelectorAll<HTMLElement>('.fb-sec')].map(el => el.id)
+  const hash = decodeURIComponent(location.hash.slice(1))
+  const target = [at, liveChapter, hash].find(id => !!id && ids.includes(id)) ?? ''
+  const place = () => {
+    const sec = target && target !== ids[0] ? document.getElementById(target) : null
+    if (sec) sec.scrollIntoView({ block: 'start' })
+    else if (liveChapter || at) window.scrollTo(0, 0) // taking over mid-visit: start at the top
+  }
+  place()
+  // once more after layout settles (fonts, the banner) so the heading sits exactly at the top
+  requestAnimationFrame(() => requestAnimationFrame(place))
+
+  // "View the live site" returns to the section being read
+  const liveLink = header.querySelector<HTMLAnchorElement>('.fb-live')
+  if (liveLink) {
+    const secs = [...root.querySelectorAll<HTMLElement>('.fb-sec')]
+    let raf = 0
+    let last = ''
+    const sync = () => {
+      raf = 0
+      const line = innerHeight * 0.35
+      let id = secs[0]?.id ?? ''
+      for (const el of secs) if (el.getBoundingClientRect().top <= line) id = el.id
+      // scrolled to the end: the last section, even when it cannot reach the line
+      const doc = document.documentElement
+      if (secs.length && scrollY + innerHeight >= doc.scrollHeight - 4) id = secs[secs.length - 1].id
+      if (id === last) return
+      last = id
+      liveLink.setAttribute('href', id && id !== secs[0]?.id ? `${liveBase}#${id}` : liveBase)
+    }
+    addEventListener(
+      'scroll',
+      () => {
+        if (!raf) raf = requestAnimationFrame(sync)
+      },
+      { passive: true },
+    )
+    requestAnimationFrame(sync)
+  }
 }

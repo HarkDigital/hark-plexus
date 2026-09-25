@@ -46,6 +46,8 @@ export class PlexusRing {
   private cNode = new THREE.Color('#d6ebff')
   private cGrab = new THREE.Color(G.white)
   private tmp = new THREE.Vector3()
+  private kb = 0
+  private kf = 0
 
   constructor(
     count: number,
@@ -160,31 +162,15 @@ export class PlexusRing {
       this.depth[i] = (px - cam.x) * view.x + (py - cam.y) * view.y + (pz - cam.z) * view.z
     }
 
-    let kb = 0
-    let kf = 0
+    this.kb = 0
+    this.kf = 0
     let db = 0
     let df = 0
     const B = this.back
     const F = this.front
     const L = this.link * (0.6 + 0.4 * grow)
     const L2 = L * L
-    const push = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, c: THREE.Color, k: number, behind: boolean) => {
-      const Ly = behind ? B : F
-      const idx = behind ? kb : kf
-      if (idx >= this.maxLinks) return
-      const o = idx * 6
-      Ly.linePos[o] = x0
-      Ly.linePos[o + 1] = y0
-      Ly.linePos[o + 2] = z0
-      Ly.linePos[o + 3] = x1
-      Ly.linePos[o + 4] = y1
-      Ly.linePos[o + 5] = z1
-      Ly.lineCol[o] = Ly.lineCol[o + 3] = c.r * k
-      Ly.lineCol[o + 1] = Ly.lineCol[o + 4] = c.g * k
-      Ly.lineCol[o + 2] = Ly.lineCol[o + 5] = c.b * k
-      if (behind) kb++
-      else kf++
-    }
+    const push = this.push
     if (strength > 0.002) {
       for (let i = 0; i < n; i++) {
         const ix = i * 3
@@ -226,18 +212,37 @@ export class PlexusRing {
         Ly.dotCol[o + 2] = this.cNode.b * k
       }
     }
-    for (const [Ly, k, d] of [
-      [B, kb, db],
-      [F, kf, df],
-    ] as const) {
-      const lg = Ly.lines.geometry
-      lg.setDrawRange(0, k * 2)
-      ;(lg.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
-      ;(lg.getAttribute('color') as THREE.BufferAttribute).needsUpdate = true
-      const dg = Ly.dots.geometry
-      dg.setDrawRange(0, d)
-      ;(dg.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
-      ;(dg.getAttribute('color') as THREE.BufferAttribute).needsUpdate = true
-    }
+    this.flush(B, this.kb, db)
+    this.flush(F, this.kf, df)
+  }
+
+  /** append a link to the behind / front layer (counts in kb / kf) */
+  private push = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, c: THREE.Color, k: number, behind: boolean) => {
+    const Ly = behind ? this.back : this.front
+    const idx = behind ? this.kb : this.kf
+    if (idx >= this.maxLinks) return
+    const o = idx * 6
+    Ly.linePos[o] = x0
+    Ly.linePos[o + 1] = y0
+    Ly.linePos[o + 2] = z0
+    Ly.linePos[o + 3] = x1
+    Ly.linePos[o + 4] = y1
+    Ly.linePos[o + 5] = z1
+    Ly.lineCol[o] = Ly.lineCol[o + 3] = c.r * k
+    Ly.lineCol[o + 1] = Ly.lineCol[o + 4] = c.g * k
+    Ly.lineCol[o + 2] = Ly.lineCol[o + 5] = c.b * k
+    if (behind) this.kb++
+    else this.kf++
+  }
+
+  private flush(Ly: Layer, links: number, dots: number) {
+    const lg = Ly.lines.geometry
+    lg.setDrawRange(0, links * 2)
+    ;(lg.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
+    ;(lg.getAttribute('color') as THREE.BufferAttribute).needsUpdate = true
+    const dg = Ly.dots.geometry
+    dg.setDrawRange(0, dots)
+    ;(dg.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
+    ;(dg.getAttribute('color') as THREE.BufferAttribute).needsUpdate = true
   }
 }
