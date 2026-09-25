@@ -181,6 +181,8 @@ a {
 }
 .stage.is-active {
   visibility: visible;
+  /* fades out under the chapter cut (the engine sets --cut 0..1 on #stages) */
+  opacity: clamp(0, calc(1 - 1.6 * var(--cut, 0)), 1);
 }
 .stage:not(.is-active),
 .stage:not(.is-active) * {

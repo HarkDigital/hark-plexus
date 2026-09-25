@@ -101,6 +101,7 @@ export class Engine {
   /** true while something (e.g. the rotate gate) covers the scene — skip rendering */
   paused = false
   private cutHold = 0
+  private cutCss = -1
   private cutPeakAt = -1e9
   /**
    * Ambient motion on/off. When off, frame.time holds still once the intro
@@ -731,6 +732,13 @@ export class Engine {
     this.cutHold = Math.max(this.cutHold * Math.exp(-f.dt / 0.45), cut)
     const rapid = now - this.cutPeakAt < 500 || Math.abs(f.velocity) > 3
     const cutOut = rapid ? Math.max(cut, this.cutHold) : cut
+    // the chapter's DOM copy fades while the cut covers the frame (no headline
+    // or CTA left floating over the dots); CSS reads --cut on #stages
+    const cutCss = Math.round(cutOut * 50) / 50
+    if (cutCss !== this.cutCss) {
+      this.cutCss = cutCss
+      this.stages.style.setProperty('--cut', String(cutCss))
+    }
     const calm = this.reducedMotion || !this.motion
     if (calm) {
       // no ripples or flashes: a quiet, shallow dip instead
