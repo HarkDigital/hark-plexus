@@ -49,7 +49,8 @@ async function boot() {
     stages.id = 'stages'
     document.body.insertBefore(stages, document.getElementById('chrome'))
   }
-  if (!Engine.supported()) {
+  // ?read: "Read as a page" (the static copy, no WebGL)
+  if (params.has('read') || !Engine.supported()) {
     canvas.remove()
     document.getElementById('loader')?.remove()
     renderFallback(track)
